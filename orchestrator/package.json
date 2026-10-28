@@ -10,7 +10,8 @@
     "start": "node src/server.js",
     "test": "NODE_ENV=test node --test test/*.test.js",
     "lint": "eslint . && prettier --check .",
-    "format": "prettier --write ."
+    "format": "prettier --write .",
+    "test:coverage": "NODE_ENV=test node --test --experimental-test-coverage --test-coverage-include=\"src/services/**\" --test-coverage-lines=80 --test-coverage-branches=80 --test-coverage-functions=80 test/*.test.js"
   },
   "dependencies": {
     "express": "^4.21.0",

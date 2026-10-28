@@ -58,9 +58,11 @@ wrangler secret put EDGE_API_KEY && wrangler secret put ORIGIN_API_KEY && wrangl
 ## Tests
 ```bash
 cd orchestrator && npm i && npm test     # routing, confidence gate, expand/escalate ladder, API, PII redaction
-cd training && pytest -q                 # dataset export
+cd training && pip install -r requirements-dev.txt && pytest -q   # dataset export (+coverage)
 cd edge && node test.mjs                 # cache + fallback
 ```
+Coverage: `cd orchestrator && npm run test:coverage` (fails below 80% lines/branches/functions on `src/services/`);
+`cd training && pytest` reports coverage for `export_traces.py` (fails below 80%).
 
 ## Lint
 ```bash

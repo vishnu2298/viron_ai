@@ -5,7 +5,7 @@ North-star metric: `localResolutionRate` (`GET /api/v1/stats`) at equal or bette
 
 ## Phase 0 — Hardening the scaffold
 - [x] Add ESLint + Prettier (orchestrator, edge) and ruff (training); add lint jobs to CI.
-- [ ] Add coverage (`node --test --experimental-test-coverage`, `pytest --cov`); target ≥80% on `services/`.
+- [x] Add coverage (`node --test --experimental-test-coverage`, `pytest --cov`); target ≥80% on `services/`.
 - [ ] `app.set('trust proxy', …)` and key the rate limiter on `CF-Connecting-IP` when behind Cloudflare.
 - [ ] Edge: use a constant-time compare for `EDGE_API_KEY`.
 - [ ] Edge: cache only answers that were confident locally or came from escalation (check `meta.attempts`); never cache `edge-fallback`.
