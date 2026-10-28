@@ -2,6 +2,7 @@
 Decoder-only transformer, written from scratch in PyTorch.
 Llama-style blocks (pre-RMSNorm, RoPE, GQA, SwiGLU) so checkpoints can be converted to GGUF later.
 """
+
 import math
 
 import torch
@@ -71,7 +72,8 @@ class Attention(nn.Module):
             y = F.scaled_dot_product_attention(q, k, v, attn_mask=mask, dropout_p=0.0)
         else:
             y = F.scaled_dot_product_attention(
-                q, k, v, is_causal=is_causal, dropout_p=self.dropout if self.training else 0.0)
+                q, k, v, is_causal=is_causal, dropout_p=self.dropout if self.training else 0.0
+            )
         return self.wo(y.transpose(1, 2).contiguous().view(B, T, -1))
 
 
@@ -133,8 +135,8 @@ class Viron(nn.Module):
         B, T = idx.shape
         assert start_pos + T <= self.cfg.max_seq_len, "sequence exceeds max_seq_len"
         x = self.tok_emb(idx)
-        cos = self.rope_cos[start_pos:start_pos + T]
-        sin = self.rope_sin[start_pos:start_pos + T]
+        cos = self.rope_cos[start_pos : start_pos + T]
+        sin = self.rope_sin[start_pos : start_pos + T]
         for i, layer in enumerate(self.layers):
             x = layer(x, cos, sin, kv_caches[i] if kv_caches is not None else None)
         x = self.norm(x)
@@ -151,8 +153,15 @@ class Viron(nn.Module):
         return torch.optim.AdamW(groups, lr=lr, betas=betas, fused=(device_type == "cuda"))
 
     @torch.no_grad()
-    def generate(self, idx, max_new_tokens: int, temperature: float = 0.8, top_p: float = 0.95,
-                 eos_id: int | None = None, use_cache: bool = True):
+    def generate(
+        self,
+        idx,
+        max_new_tokens: int,
+        temperature: float = 0.8,
+        top_p: float = 0.95,
+        eos_id: int | None = None,
+        use_cache: bool = True,
+    ):
         self.eval()
         caches = [{} for _ in self.layers] if use_cache else None
         logits, _ = self(idx, kv_caches=caches, start_pos=0) if use_cache else self(idx)

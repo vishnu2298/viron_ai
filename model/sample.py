@@ -1,6 +1,7 @@
 """Generate text from a Viron checkpoint.
-  python sample.py --ckpt checkpoints/run/best.pt --prompt "Once upon a time"
+python sample.py --ckpt checkpoints/run/best.pt --prompt "Once upon a time"
 """
+
 import argparse
 
 import torch

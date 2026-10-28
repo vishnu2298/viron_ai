@@ -4,6 +4,7 @@ Single GPU:   python train.py --preset tiny --data data/tokens --tokenizer artif
 Multi-GPU:    torchrun --nproc_per_node=8 train.py --preset small ...
 Resume:       add --resume (picks up out_dir/ckpt.pt)
 """
+
 import argparse
 import json
 import math
@@ -84,6 +85,7 @@ def main(argv=None):
     seq = min(a.seq or cfg.max_seq_len, cfg.max_seq_len)
 
     from viron.model import Viron
+
     model = Viron(cfg).to(a.device)
     opt = model.configure_optimizer(a.lr, a.wd, device_type=dev_type)
     if a.resume and ckpt_path.exists():
@@ -102,8 +104,18 @@ def main(argv=None):
     if master:
         out.mkdir(parents=True, exist_ok=True)
         tokens_per_step = a.batch * a.accum * seq * world
-        print(json.dumps({"event": "start", "params": raw.num_params(), "preset": a.preset,
-                          "tokens_per_step": tokens_per_step, "train_tokens": len(train), "device": a.device}))
+        print(
+            json.dumps(
+                {
+                    "event": "start",
+                    "params": raw.num_params(),
+                    "preset": a.preset,
+                    "tokens_per_step": tokens_per_step,
+                    "train_tokens": len(train),
+                    "device": a.device,
+                }
+            )
+        )
 
     @torch.no_grad()
     def evaluate():
@@ -121,8 +133,17 @@ def main(argv=None):
         return res
 
     def save(tag="ckpt"):
-        torch.save({"model": raw.state_dict(), "optimizer": opt.state_dict(), "config": cfg.to_dict(),
-                    "step": step, "best_val": best, "tokenizer": meta.get("tokenizer")}, out / f"{tag}.pt")
+        torch.save(
+            {
+                "model": raw.state_dict(),
+                "optimizer": opt.state_dict(),
+                "config": cfg.to_dict(),
+                "step": step,
+                "best_val": best,
+                "tokenizer": meta.get("tokenizer"),
+            },
+            out / f"{tag}.pt",
+        )
 
     model.train()
     t0 = time.time()
@@ -147,12 +168,32 @@ def main(argv=None):
         if master and step % 10 == 0:
             dt = time.time() - t0
             t0 = time.time()
-            print(json.dumps({"event": "train", "step": step, "loss": round(loss_acc, 4), "lr": lr,
-                              "gnorm": round(gnorm, 3), "sec_per_10": round(dt, 2)}), flush=True)
+            print(
+                json.dumps(
+                    {
+                        "event": "train",
+                        "step": step,
+                        "loss": round(loss_acc, 4),
+                        "lr": lr,
+                        "gnorm": round(gnorm, 3),
+                        "sec_per_10": round(dt, 2),
+                    }
+                ),
+                flush=True,
+            )
         if master and (step % a.eval_every == 0 or step == a.steps):
             ev = evaluate()
-            print(json.dumps({"event": "eval", "step": step, **{k: round(v, 4) for k, v in ev.items()},
-                              "val_ppl": round(math.exp(min(ev["val"], 20)), 2)}), flush=True)
+            print(
+                json.dumps(
+                    {
+                        "event": "eval",
+                        "step": step,
+                        **{k: round(v, 4) for k, v in ev.items()},
+                        "val_ppl": round(math.exp(min(ev["val"], 20)), 2),
+                    }
+                ),
+                flush=True,
+            )
             if ev["val"] < best:
                 best = ev["val"]
                 save("best")

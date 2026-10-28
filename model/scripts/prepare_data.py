@@ -1,6 +1,7 @@
 """Tokenize raw .txt / .jsonl ({"text": ...}) into train.bin / val.bin shards.
-  python scripts/prepare_data.py --input data/raw --tokenizer artifacts/tokenizer.json --out data/tokens
+python scripts/prepare_data.py --input data/raw --tokenizer artifacts/tokenizer.json --out data/tokens
 """
+
 import argparse
 import json
 import sys

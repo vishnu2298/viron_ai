@@ -7,7 +7,7 @@ import pytest
 import torch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from viron.config import ModelConfig, preset  # noqa: E402
+from viron.config import preset  # noqa: E402
 from viron.model import Viron  # noqa: E402
 from viron.tokenizer import ByteTokenizer  # noqa: E402
 
@@ -84,22 +84,61 @@ def test_end_to_end_train_resume_sample(tmp_path):
     (raw / "b.jsonl").write_text("\n".join(json.dumps({"text": f"doc {i} " * 50}) for i in range(150)))
 
     import subprocess
+
     root = Path(__file__).resolve().parents[1]
     tokens = tmp_path / "tokens"
-    subprocess.run([sys.executable, str(root / "scripts/prepare_data.py"), "--input", str(raw),
-                    "--out", str(tokens), "--val-every", "10"], check=True)
+    subprocess.run(
+        [
+            sys.executable,
+            str(root / "scripts/prepare_data.py"),
+            "--input",
+            str(raw),
+            "--out",
+            str(tokens),
+            "--val-every",
+            "10",
+        ],
+        check=True,
+    )
 
     sys.path.insert(0, str(root))
     import train
-    args = ["--preset", "nano", "--data", str(tokens), "--out", str(tmp_path / "run"), "--steps", "60",
-            "--batch", "8", "--accum", "1", "--seq", "64", "--warmup", "5", "--lr", "3e-3",
-            "--eval-every", "30", "--eval-iters", "5", "--save-every", "30", "--device", "cpu"]
+
+    args = [
+        "--preset",
+        "nano",
+        "--data",
+        str(tokens),
+        "--out",
+        str(tmp_path / "run"),
+        "--steps",
+        "60",
+        "--batch",
+        "8",
+        "--accum",
+        "1",
+        "--seq",
+        "64",
+        "--warmup",
+        "5",
+        "--lr",
+        "3e-3",
+        "--eval-every",
+        "30",
+        "--eval-iters",
+        "5",
+        "--save-every",
+        "30",
+        "--device",
+        "cpu",
+    ]
     best1 = train.main(args)
-    best2 = train.main(args[:args.index("--steps") + 1] + ["90"] + args[args.index("--steps") + 2:] + ["--resume"])
+    best2 = train.main(args[: args.index("--steps") + 1] + ["90"] + args[args.index("--steps") + 2 :] + ["--resume"])
     assert best2 <= best1
     assert best1 < np.log(263)  # learned something vs uniform
 
     from sample import load
+
     model, tok = load(tmp_path / "run" / "best.pt", "cpu")
     out = model.generate(torch.tensor([tok.encode("the quick")]), 30, temperature=0)
     assert isinstance(tok.decode(out[0].tolist()), str)
