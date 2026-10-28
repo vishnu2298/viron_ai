@@ -89,16 +89,25 @@ def iter_texts(stream: io.BufferedIOBase, path: str, field: str) -> Iterator[str
 def iter_parquet_texts(stream: io.BufferedIOBase, field: str, spool_dir: Path, batch_rows: int = 1024) -> Iterator[str]:
     import pyarrow.parquet as pq
 
-    with tempfile.NamedTemporaryFile(dir=spool_dir, suffix=".parquet") as tmp:
-        shutil.copyfileobj(stream, tmp, length=1 << 20)
-        tmp.flush()
-        pf = pq.ParquetFile(tmp.name)
-        if field not in pf.schema_arrow.names:
-            raise ValueError(f"column {field!r} not in parquet schema {pf.schema_arrow.names}")
-        for batch in pf.iter_batches(columns=[field], batch_size=batch_rows):
-            for text in batch.column(0).to_pylist():
-                if isinstance(text, str) and text.strip():
-                    yield text
+    # Windows cannot reopen a file that is still open (WinError 32), so spool to a *closed* temp file, let pyarrow
+    # open it by path, and close pyarrow's handle before deleting. The finally blocks also run when the caller stops
+    # early (token budget reached), so no temp file is left behind.
+    fd, tmp = tempfile.mkstemp(dir=spool_dir, suffix=".parquet.tmp")
+    try:
+        with os.fdopen(fd, "wb") as f:
+            shutil.copyfileobj(stream, f, length=1 << 20)
+        pf = pq.ParquetFile(tmp)
+        try:
+            if field not in pf.schema_arrow.names:
+                raise ValueError(f"column {field!r} not in parquet schema {pf.schema_arrow.names}")
+            for batch in pf.iter_batches(columns=[field], batch_size=batch_rows):
+                for text in batch.column(0).to_pylist():
+                    if isinstance(text, str) and text.strip():
+                        yield text
+        finally:
+            pf.close()
+    finally:
+        os.remove(tmp)
 
 
 class _PartWriter:

@@ -105,7 +105,7 @@ def test_full_download_reads_jsonl_gzip_and_parquet_skips_bad_rows(hub, tmp_path
     assert sum(r["text"].endswith(("300", "301", "302")) for r in rows) == 3
     assert m["docs"] == 12 and m["complete"] is True
     assert m["skipped"] == ["data/notes.md"]
-    assert not list((tmp_path / "fake").glob("*.parquet"))  # spooled temp files are removed
+    assert not list((tmp_path / "fake").glob("*.parquet*"))  # spooled temp files are removed
     saved = json.loads((tmp_path / "fake" / "manifest.json").read_text())
     assert saved["source"]["license"] == "CC0"
 
@@ -135,6 +135,28 @@ def test_parquet_missing_text_column_is_an_error(tmp_path):
     pq.write_table(pa.table({"body": ["x"]}), buf)
     with pytest.raises(ValueError, match="column 'text'"):
         list(iter_parquet_texts(io.BytesIO(buf.getvalue()), "text", tmp_path))
+
+
+def test_parquet_temp_file_is_closed_before_reopen_and_removed_on_early_stop(tmp_path, monkeypatch):
+    """Regression for Windows WinError 32: the spooled file must not be held open when pyarrow opens it."""
+    from viron import download as dl
+
+    real_open = pq.ParquetFile
+    seen = {}
+
+    def strict_open(path, *args, **kwargs):
+        # On Windows an open writer handle makes this fail; emulate by checking the file is fully written and closed
+        seen["path"] = path
+        with open(path, "rb") as f:  # would raise PermissionError on Windows if a handle were still open
+            assert f.read(4) == b"PAR1"
+        return real_open(path, *args, **kwargs)
+
+    monkeypatch.setattr(pq, "ParquetFile", strict_open)
+    texts = dl.iter_parquet_texts(io.BytesIO(parquet(5, 0)), "text", tmp_path, batch_rows=2)
+    assert next(texts).endswith("0")
+    texts.close()  # caller stops early, like a token budget cut
+    assert Path(seen["path"]).parent == tmp_path
+    assert list(tmp_path.iterdir()) == []
 
 
 def test_registry_only_has_approved_licenses():
