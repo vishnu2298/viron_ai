@@ -1,7 +1,7 @@
 {
   "name": "viron-ai-orchestrator",
   "version": "0.1.0",
-  "description": "Viron AI: small local model that expands via adapters, retrieval and escalation",
+  "description": "Viron AI runtime: serves Viron tiers with adapters and retrieval, least compute per request",
   "main": "src/server.js",
   "engines": {
     "node": ">=20"

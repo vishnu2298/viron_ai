@@ -47,13 +47,6 @@ function buildConfig(env) {
 
     retrieval: { topK: num(env.RETRIEVAL_TOP_K, 4), minScore: num(env.RETRIEVAL_MIN_SCORE, 0.55) },
 
-    escalation: {
-      enabled: env.ESCALATION_ENABLED === 'true', // off by default: Viron runs standalone
-      apiKey: env.ANTHROPIC_API_KEY || '',
-      model: env.ESCALATION_MODEL || 'claude-sonnet-5-5',
-      maxTokens: num(env.ESCALATION_MAX_TOKENS, 1024),
-    },
-
     mongo: { uri: env.MONGODB_URI || '', db: env.MONGODB_DB || 'viron_ai' },
     requestTimeoutMs: num(env.REQUEST_TIMEOUT_MS, 60000),
   };
@@ -95,12 +88,6 @@ const schema = Joi.object({
   retrieval: Joi.object({
     topK: Joi.number().integer().min(1).max(50).label('RETRIEVAL_TOP_K').required(),
     minScore: Joi.number().min(0).max(1).label('RETRIEVAL_MIN_SCORE').required(),
-  }).required(),
-  escalation: Joi.object({
-    enabled: Joi.boolean().required(),
-    apiKey: Joi.string().allow('').label('ANTHROPIC_API_KEY'),
-    model: Joi.string().min(1).label('ESCALATION_MODEL').required(),
-    maxTokens: Joi.number().integer().min(1).max(64000).label('ESCALATION_MAX_TOKENS').required(),
   }).required(),
   mongo: Joi.object({
     uri: Joi.string()

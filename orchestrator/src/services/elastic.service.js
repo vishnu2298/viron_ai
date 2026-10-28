@@ -1,7 +1,7 @@
 /**
  * The Viron AI pipeline — shrink by default, expand only when needed:
- *   route → retrieve → tiny/core (+LoRA) → confidence gate → expand to core → escalate
- * Each request is traced; escalations become distillation data for new adapters.
+ *   route → retrieve → tiny (+LoRA) → confidence gate → core (+LoRA)
+ * Standalone: the ladder ends at `core`; no external model is ever called. Each request is traced (redacted).
  */
 const logger = require('../utils/logger');
 const { redact } = require('../utils/redact');
@@ -21,7 +21,7 @@ function buildMessages(message, history) {
   return [...history, { role: 'user', content: message }];
 }
 
-function createElasticService({ router, retrieval, inference, escalation, confidence, traceRepo, config }) {
+function createElasticService({ router, retrieval, inference, confidence, traceRepo, config }) {
   async function tryLocal(tier, system, messages, adapters, attempts) {
     const started = Date.now();
     const out = await inference.generate({
@@ -51,34 +51,17 @@ function createElasticService({ router, retrieval, inference, escalation, confid
     let answer = null;
     let servedBy = null;
 
-    if (!decision.forceEscalate) {
-      const ladder = decision.tier === 'tiny' ? ['tiny', 'core'] : ['core'];
-      for (const tier of ladder) {
-        try {
-          const out = await tryLocal(tier, system, messages, decision.adapters, attempts);
-          answer = out.text;
-          servedBy = tier;
-          if (out.conf.confident) break;
-        } catch (err) {
-          attempts.push({ tier, error: err.message });
-          logger.warn({ event: 'local.failed', tier, error: err.message });
-        }
-      }
-    }
-
-    const lastConfident = attempts.length && attempts[attempts.length - 1].confident;
-    const needEscalation = decision.forceEscalate || !lastConfident;
-    let escalated = false;
-
-    if (needEscalation && config.escalation.enabled && options.allowEscalation !== false) {
+    // An unsure answer from the last reachable tier is still returned (degrade, don't fail)
+    const ladder = decision.tier === 'tiny' ? ['tiny', 'core'] : ['core'];
+    for (const tier of ladder) {
       try {
-        const out = await escalation.generate({ system, messages });
+        const out = await tryLocal(tier, system, messages, decision.adapters, attempts);
         answer = out.text;
-        servedBy = 'escalation';
-        escalated = true;
+        servedBy = tier;
+        if (out.conf.confident) break;
       } catch (err) {
-        attempts.push({ tier: 'escalation', error: err.message });
-        logger.error({ event: 'escalation.failed', error: err.message });
+        attempts.push({ tier, error: err.message });
+        logger.warn({ event: 'local.failed', tier, error: err.message });
       }
     }
 
@@ -93,7 +76,6 @@ function createElasticService({ router, retrieval, inference, escalation, confid
       message: redact(message),
       answer: redact(answer),
       servedBy,
-      escalated,
       decision,
       attempts,
       contextIds: contexts.map((c) => c.id),
@@ -106,7 +88,7 @@ function createElasticService({ router, retrieval, inference, escalation, confid
       answer,
       meta: {
         servedBy,
-        escalated,
+        escalated: false, // kept so the v1 response shape is unchanged; there is no escalation tier
         tierRequested: decision.tier,
         complexity: decision.complexity,
         adapters: decision.adapters.map((a) => a.name),

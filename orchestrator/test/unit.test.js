@@ -14,7 +14,7 @@ test('router: short simple question shrinks to tiny tier', () => {
     d.adapters.map((a) => a.name),
     ['support'],
   );
-  assert.equal(d.forceEscalate, false);
+  assert.equal('forceEscalate' in d, false);
 });
 
 test('router: reasoning-heavy question expands to core with code adapter', () => {
@@ -23,8 +23,8 @@ test('router: reasoning-heavy question expands to core with code adapter', () =>
   assert.equal(d.adapters[0].name, 'code');
 });
 
-test('router: hard tasks force escalation', () => {
-  assert.equal(router.route('Prove that this algorithm terminates', adapters).forceEscalate, true);
+test('router: short but hard tasks go to core', () => {
+  assert.equal(router.route('Prove that this algorithm terminates', adapters).tier, 'core');
 });
 
 test('confidence: confident vs uncertain token streams', () => {

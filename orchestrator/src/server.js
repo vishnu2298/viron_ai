@@ -3,7 +3,6 @@ const logger = require('./utils/logger');
 const router = require('./services/router.service');
 const confidence = require('./services/confidence.service');
 const { createInferenceService } = require('./services/inference.service');
-const { createEscalationService } = require('./services/escalation.service');
 const { createRetrievalService } = require('./services/retrieval.service');
 const { createElasticService } = require('./services/elastic.service');
 const { createKnowledgeRepository } = require('./repositories/knowledge.repository');
@@ -31,7 +30,6 @@ async function main() {
     confidence,
     retrieval: createRetrievalService({ knowledgeRepo, embedUrl: config.embedUrl, ...config.retrieval, timeoutMs: 10_000 }),
     inference: createInferenceService({ tiers: config.tiers, timeoutMs: config.requestTimeoutMs }),
-    escalation: createEscalationService({ ...config.escalation, timeoutMs: config.requestTimeoutMs }),
     traceRepo,
     config,
   });

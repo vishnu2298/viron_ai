@@ -1,6 +1,6 @@
 /**
  * Request traces = the system's learning signal.
- * Escalated rows are teacher-labelled examples; training/export_traces.py turns them into LoRA datasets.
+ * Redacted rows feed training/export_traces.py (LoRA datasets for Viron checkpoints, roadmap M5).
  */
 function createTraceRepository(db) {
   const col = db.collection('traces');
