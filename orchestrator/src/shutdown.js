@@ -1,6 +1,7 @@
 /**
  * Graceful shutdown: stop accepting connections, let in-flight requests finish, flush fire-and-forget
- * trace writes, then close Mongo. A hard timeout (below Docker's 10s SIGKILL grace) bounds the drain.
+ * trace writes, then close Mongo. A hard timeout bounds the drain; it must stay below the container's stop grace
+ * period (docker-compose.yml: stop_grace_period 35s) so we exit cleanly before SIGKILL.
  */
 const logger = require('./utils/logger');
 
@@ -23,7 +24,7 @@ function createPendingTracker() {
   };
 }
 
-function createShutdown({ server, mongo, pending, timeoutMs = 8000, exit = process.exit }) {
+function createShutdown({ server, mongo, pending, timeoutMs = 30_000, exit = process.exit }) {
   let started = false;
 
   async function drain() {

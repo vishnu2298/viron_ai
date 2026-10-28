@@ -39,6 +39,8 @@ services:
       # No EMBED_URL: retrieval uses MongoDB text search until Viron provides its own embeddings (standalone rule 2)
       MONGODB_URI: mongodb://mongo:27017/?directConnection=true
     ports: ["8080:8080"]
+    # Local generations can take tens of seconds; the orchestrator drains for up to 30s (src/shutdown.js)
+    stop_grace_period: 35s
     depends_on: [llm-tiny, llm-core, mongo]
     restart: unless-stopped
 
