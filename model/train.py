@@ -18,7 +18,8 @@ import torch.distributed as dist
 from torch.nn.parallel import DistributedDataParallel as DDP
 
 from viron.config import ModelConfig, preset
-from viron.data import TokenDataset
+from viron.data import MixtureDataset, TokenDataset, load_source_split
+from viron.mixture import load_mixture
 
 
 def lr_at(step, a):
@@ -33,7 +34,8 @@ def lr_at(step, a):
 def parse(argv=None):
     ap = argparse.ArgumentParser()
     ap.add_argument("--preset", default="tiny")
-    ap.add_argument("--data", required=True)
+    ap.add_argument("--data", default=None, help="dir with train.bin/val.bin/meta.json (single-file mode)")
+    ap.add_argument("--mix", default=None, help="data mixture YAML (configs/data/*.yaml); replaces --data")
     ap.add_argument("--tokenizer", default=None)
     ap.add_argument("--out", default="checkpoints/run")
     ap.add_argument("--steps", type=int, default=20000)
@@ -52,7 +54,10 @@ def parse(argv=None):
     ap.add_argument("--resume", action="store_true")
     ap.add_argument("--seed", type=int, default=1337)
     ap.add_argument("--device", default="cuda" if torch.cuda.is_available() else "cpu")
-    return ap.parse_args(argv)
+    a = ap.parse_args(argv)
+    if bool(a.data) == bool(a.mix):
+        ap.error("pass exactly one of --data or --mix")
+    return a
 
 
 def main(argv=None):
@@ -72,7 +77,9 @@ def main(argv=None):
         torch.backends.cuda.matmul.allow_tf32 = True
     amp = torch.autocast(dev_type, dtype=torch.bfloat16) if dev_type == "cuda" else nullcontext()
 
-    meta = json.loads((Path(a.data) / "meta.json").read_text())
+    mix = load_mixture(a.mix) if a.mix else None
+    data_root = mix.tokens_dir if mix else Path(a.data)
+    meta = json.loads((data_root / "meta.json").read_text())
     out = Path(a.out)
     ckpt_path = out / "ckpt.pt"
     step, best = 0, float("inf")
@@ -98,8 +105,14 @@ def main(argv=None):
     if ddp:
         model = DDP(model, device_ids=[int(os.environ["LOCAL_RANK"])])
 
-    train = TokenDataset(str(Path(a.data) / "train.bin"), cfg.vocab_size)
-    val = TokenDataset(str(Path(a.data) / "val.bin"), cfg.vocab_size)
+    if mix:
+        parts = {n: load_source_split(data_root, n, "train", cfg.vocab_size) for n in mix.weights}
+        train = MixtureDataset(parts, mix.weights)
+        # Per-source val sets: a mixture change must be judged on each language, not only on the blend
+        vals = {n: load_source_split(data_root, n, "val", cfg.vocab_size) for n in mix.weights}
+    else:
+        train = TokenDataset(str(data_root / "train.bin"), cfg.vocab_size)
+        vals = {"val": TokenDataset(str(data_root / "val.bin"), cfg.vocab_size)}
 
     if master:
         out.mkdir(parents=True, exist_ok=True)
@@ -121,7 +134,8 @@ def main(argv=None):
     def evaluate():
         model.eval()
         res = {}
-        for name, ds in (("train", train), ("val", val)):
+        named = {"train": train, **({f"val_{n}": ds for n, ds in vals.items()} if mix else vals)}
+        for name, ds in named.items():
             losses = torch.zeros(a.eval_iters)
             for i in range(a.eval_iters):
                 x, y = ds.batch(a.batch, seq, a.device)
@@ -129,6 +143,8 @@ def main(argv=None):
                     _, loss = model(x, y)
                 losses[i] = loss.item()
             res[name] = losses.mean().item()
+        if mix:
+            res["val"] = sum(mix.weights[n] * res[f"val_{n}"] for n in mix.weights)
         model.train()
         return res
 

@@ -2,4 +2,5 @@ torch>=2.3
 numpy>=1.26
 tokenizers>=0.19
 pyarrow>=15  # Parquet sources in scripts/download_data.py
+pyyaml>=6  # data-mixture and run configs
 pytest>=8
