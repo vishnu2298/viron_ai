@@ -9,7 +9,7 @@ test('config: defaults are valid', () => {
   const c = loadConfig({});
   assert.equal(c.port, 8080);
   assert.equal(c.trustProxy, false);
-  assert.equal(c.escalation.enabled, true);
+  assert.equal(c.escalation.enabled, false);
   assert.ok(c.adapters.length > 0);
 });
 

@@ -33,3 +33,13 @@ jobs:
       - run: npm ci
       - run: npm run lint
       - run: node test.mjs
+  model:
+    runs-on: ubuntu-latest
+    defaults: { run: { working-directory: model } }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.12' }
+      - run: pip install torch --index-url https://download.pytorch.org/whl/cpu
+      - run: pip install numpy tokenizers pytest
+      - run: pytest -q

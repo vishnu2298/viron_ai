@@ -1,6 +1,6 @@
 # Viron AI
 
-> Elastic AI runtime: a small local model that shrinks to the least compute a request needs and expands only when it must.
+> A standalone language model trained from scratch (`model/`), plus an elastic runtime that serves it with the least compute each request needs. No external AI APIs, no pretrained weights.
 
 A small AI system that **shrinks** to the least compute a request needs and **expands** only when it must.
 Target footprint: ~2–4 GB of weights on one machine, instead of a giant always-on model.
