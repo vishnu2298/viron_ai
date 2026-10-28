@@ -11,7 +11,7 @@ pip install -r requirements.txt
 python scripts/download_data.py --source commonpile_comma --max-tokens 850_000_000
 python scripts/download_data.py --source sangraha_verified_hin --max-tokens 150_000_000
 python scripts/clean_data.py --input data/raw --out data/clean   # redact PII, filter, dedup; see data/clean/stats.json
-python scripts/train_tokenizer.py --input data/raw --out artifacts/tokenizer.json --vocab 32000
+python scripts/train_tokenizer.py --input data/clean --mix configs/data/mix_v1.yaml --out artifacts/tokenizer.json  # + tokenizer_report.json
 python scripts/prepare_shards.py --input data/clean --tokenizer artifacts/tokenizer.json --out data/tokens
 python train.py --preset tiny --mix configs/data/mix_v1.yaml --out checkpoints/tiny   # add --resume to continue
 # quick single-file experiments: scripts/prepare_data.py + train.py --data <dir>

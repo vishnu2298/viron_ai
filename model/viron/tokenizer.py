@@ -39,7 +39,7 @@ class BPETokenizer:
         self.vocab_size = self.tk.get_vocab_size()
 
     @staticmethod
-    def train(files: list[str], out_path: str | Path, vocab_size: int = 32000, min_frequency: int = 2):
+    def _new(vocab_size: int, min_frequency: int):
         from tokenizers import Tokenizer, decoders, models, pre_tokenizers, trainers
 
         tk = Tokenizer(models.BPE(byte_fallback=False))
@@ -52,10 +52,28 @@ class BPETokenizer:
             initial_alphabet=pre_tokenizers.ByteLevel.alphabet(),
             show_progress=True,
         )
-        tk.train(files, trainer)
+        return tk, trainer
+
+    @staticmethod
+    def _save(tk, out_path: str | Path) -> "BPETokenizer":
         Path(out_path).parent.mkdir(parents=True, exist_ok=True)
         tk.save(str(out_path))
         return BPETokenizer(out_path)
+
+    @staticmethod
+    def train(files: list[str], out_path: str | Path, vocab_size: int = 32000, min_frequency: int = 2):
+        tk, trainer = BPETokenizer._new(vocab_size, min_frequency)
+        tk.train(files, trainer)
+        return BPETokenizer._save(tk, out_path)
+
+    @staticmethod
+    def train_from_iterator(
+        texts: Iterable[str], out_path: str | Path, vocab_size: int = 32000, min_frequency: int = 2
+    ):
+        """Train on an in-memory stream (e.g. a mixture-weighted sample of data/clean) without temp files."""
+        tk, trainer = BPETokenizer._new(vocab_size, min_frequency)
+        tk.train_from_iterator(texts, trainer)
+        return BPETokenizer._save(tk, out_path)
 
     def token_id(self, t: str) -> int:
         return self.tk.token_to_id(t)
