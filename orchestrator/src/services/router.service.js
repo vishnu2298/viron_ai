@@ -2,7 +2,6 @@
  * Router: decides how much model a request needs.
  *  - tier: 'tiny' | 'core'   (shrink vs expand compute)
  *  - adapters: LoRA skills to hot-attach
- *  - forceEscalate: skip local tiers when the task is clearly beyond them
  * Deterministic + cheap (<1ms). Replace with a trained classifier once traces exist.
  */
 // prettier-ignore
@@ -10,6 +9,7 @@ const REASONING_HINTS = [
   'why', 'explain', 'design', 'architecture', 'compare', 'analyze', 'analyse', 'prove',
   'step by step', 'trade-off', 'tradeoff', 'optimize', 'debug', 'plan', 'strategy',
 ];
+// Clearly hard tasks go straight to the largest local tier
 const HARD_HINTS = ['prove that', 'formal proof', 'legal advice', 'diagnose', 'multi-step plan with'];
 
 function scoreComplexity(text) {
@@ -35,11 +35,11 @@ function matchAdapters(text, registry, max = 2) {
 function route(message, registry) {
   const complexity = scoreComplexity(message);
   const lower = message.toLowerCase();
+  const hard = HARD_HINTS.some((h) => lower.includes(h));
   return {
     complexity: Number(complexity.toFixed(2)),
-    tier: complexity < 0.35 ? 'tiny' : 'core',
+    tier: complexity < 0.35 && !hard ? 'tiny' : 'core',
     adapters: matchAdapters(message, registry),
-    forceEscalate: HARD_HINTS.some((h) => lower.includes(h)) || complexity >= 0.95,
   };
 }
 

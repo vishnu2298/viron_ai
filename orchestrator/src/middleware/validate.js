@@ -7,7 +7,6 @@ const chatSchema = Joi.object({
     .default([]),
   options: Joi.object({
     tier: Joi.string().valid('tiny', 'core'),
-    allowEscalation: Joi.boolean(),
   }).default({}),
 });
 const validate = (schema) => (req, res, next) => {

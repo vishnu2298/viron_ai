@@ -3,7 +3,6 @@ const assert = require('node:assert/strict');
 const router = require('../src/services/router.service');
 const confidence = require('../src/services/confidence.service');
 const { createRetrievalService } = require('../src/services/retrieval.service');
-const { createEscalationService } = require('../src/services/escalation.service');
 const { createInferenceService } = require('../src/services/inference.service');
 const { createElasticService, buildSystem, SYSTEM_PROMPT } = require('../src/services/elastic.service');
 
@@ -52,35 +51,6 @@ test('retrieval: no embedder -> unfiltered text search', async () => {
   assert.deepEqual(await svc.retrieve('x'), [{ id: 'x', k: 2, score: 0.01 }]);
 });
 
-test('escalation: missing API key fails before any network call', async () => {
-  const { http, calls } = fakeHttp({});
-  const svc = createEscalationService({ apiKey: '', model: 'm', maxTokens: 10, timeoutMs: 100, http });
-  await assert.rejects(svc.generate({ system: 's', messages: [] }), /ANTHROPIC_API_KEY/);
-  assert.equal(calls.length, 0);
-});
-
-test('escalation: joins text blocks, ignores others, passes auth headers', async () => {
-  const { http, calls } = fakeHttp({
-    content: [
-      { type: 'text', text: 'a' },
-      { type: 'thinking', thinking: 'x' },
-      { type: 'text', text: 'b' },
-    ],
-    usage: { output_tokens: 2 },
-  });
-  const svc = createEscalationService({ apiKey: 'k', model: 'm', maxTokens: 10, timeoutMs: 100, http });
-  const out = await svc.generate({ system: 's', messages: [{ role: 'user', content: 'hi' }] });
-  assert.deepEqual(out, { text: 'a\nb', usage: { output_tokens: 2 } });
-  assert.equal(calls[0].opts.headers['x-api-key'], 'k');
-  assert.deepEqual(calls[0].body, { model: 'm', max_tokens: 10, system: 's', messages: [{ role: 'user', content: 'hi' }] });
-});
-
-test('escalation: tolerates empty content and missing usage', async () => {
-  const { http } = fakeHttp({});
-  const svc = createEscalationService({ apiKey: 'k', model: 'm', maxTokens: 10, timeoutMs: 100, http });
-  assert.deepEqual(await svc.generate({ system: 's', messages: [] }), { text: '', usage: {} });
-});
-
 test('inference: unknown tier rejects; adapter scale defaults to 1; empty choice is safe', async () => {
   const { http, calls } = fakeHttp({});
   const svc = createInferenceService({ tiers: { tiny: { url: 'http://t', maxTokens: 5 } }, timeoutMs: 100, http });
@@ -111,8 +81,8 @@ test('router: code and multiple questions raise complexity; adapters are capped'
 });
 
 // Elastic pipeline with fully injected fakes
-function elasticWith({ local = {}, retrieve, escalate, escalationEnabled = true, traceSave, route } = {}) {
-  const calls = { local: [], escalation: [], traces: [] };
+function elasticWith({ local = {}, retrieve, traceSave, route } = {}) {
+  const calls = { local: [], traces: [] };
   const elastic = createElasticService({
     router: { route: route || ((m, reg) => router.route(m, reg)) },
     confidence,
@@ -125,15 +95,8 @@ function elasticWith({ local = {}, retrieve, escalate, escalationEnabled = true,
         return { text: `${tier} answer`, logprobs: r || sure };
       },
     },
-    escalation: {
-      generate: async (req) => {
-        calls.escalation.push(req);
-        if (escalate instanceof Error) throw escalate;
-        return { text: 'teacher' };
-      },
-    },
     traceRepo: { save: traceSave || (async (t) => calls.traces.push(t)) },
-    config: { adapters: [], confidence: CONF, escalation: { enabled: escalationEnabled } },
+    config: { adapters: [], confidence: CONF },
   });
   return { elastic, calls };
 }
@@ -159,40 +122,34 @@ test('elastic: options.tier=core skips tiny', async () => {
   );
 });
 
-test('elastic: forceEscalate skips local tiers entirely', async () => {
+test('elastic: hard prompts go straight to core', async () => {
   const { elastic, calls } = elasticWith();
   const out = await elastic.chat({ message: 'Prove that P != NP' });
-  assert.equal(out.meta.servedBy, 'escalation');
-  assert.equal(calls.local.length, 0);
+  assert.equal(out.meta.servedBy, 'core');
+  assert.deepEqual(
+    calls.local.map((c) => c.tier),
+    ['core'],
+  );
 });
 
-test('elastic: unsure locally + escalation disabled -> best local answer, not escalated', async () => {
-  const { elastic, calls } = elasticWith({ local: { tiny: unsure, core: unsure }, escalationEnabled: false });
+test('elastic: unsure on both tiers -> core answer, not escalated', async () => {
+  const { elastic } = elasticWith({ local: { tiny: unsure, core: unsure } });
   const out = await elastic.chat({ message: 'hi' });
   assert.equal(out.meta.servedBy, 'core');
   assert.equal(out.meta.escalated, false);
-  assert.equal(calls.escalation.length, 0);
+  assert.equal(out.answer, 'core answer');
 });
 
-test('elastic: allowEscalation=false is honoured', async () => {
-  const { elastic, calls } = elasticWith({ local: { tiny: unsure, core: unsure } });
-  await elastic.chat({ message: 'hi', options: { allowEscalation: false } });
-  assert.equal(calls.escalation.length, 0);
+test('elastic: tiny unsure and core down -> tiny answer is returned', async () => {
+  const { elastic } = elasticWith({ local: { tiny: unsure, core: new Error('down') } });
+  const out = await elastic.chat({ message: 'hi' });
+  assert.equal(out.meta.servedBy, 'tiny');
+  assert.equal(out.meta.attempts.at(-1).error, 'down');
 });
 
 test('elastic: every tier down -> 503 NO_TIER_AVAILABLE', async () => {
-  const { elastic } = elasticWith({
-    local: { tiny: new Error('down'), core: new Error('down') },
-    escalate: new Error('down'),
-  });
+  const { elastic } = elasticWith({ local: { tiny: new Error('down'), core: new Error('down') } });
   await assert.rejects(elastic.chat({ message: 'hi' }), (err) => err.statusCode === 503 && err.code === 'NO_TIER_AVAILABLE');
-});
-
-test('elastic: escalation failure falls back to the unsure local answer', async () => {
-  const { elastic } = elasticWith({ local: { tiny: unsure, core: unsure }, escalate: new Error('429') });
-  const out = await elastic.chat({ message: 'hi' });
-  assert.equal(out.meta.servedBy, 'core');
-  assert.equal(out.meta.attempts.at(-1).tier, 'escalation');
 });
 
 test('elastic: trace save failure does not fail the request', async () => {
@@ -216,11 +173,11 @@ test('elastic: context goes to the system prompt; history and user turn stay ver
     local: { tiny: unsure, core: unsure },
   });
   await elastic.chat({ message: 'new q', history });
-  const sent = calls.local[0].messages;
-  assert.deepEqual(sent.slice(1), [...history, { role: 'user', content: 'new q' }]);
-  assert.equal(sent[0].content, `${SYSTEM_PROMPT}\n\nContext:\n[1] Fact one.`);
-  assert.equal(calls.escalation[0].system, sent[0].content);
-  assert.deepEqual(calls.escalation[0].messages, sent.slice(1));
+  for (const { messages: sent } of calls.local) {
+    assert.deepEqual(sent.slice(1), [...history, { role: 'user', content: 'new q' }]);
+    assert.equal(sent[0].content, `${SYSTEM_PROMPT}\n\nContext:\n[1] Fact one.`);
+  }
+  assert.equal(calls.local.length, 2);
 });
 
 test('buildSystem: no context -> bare system prompt', () => {

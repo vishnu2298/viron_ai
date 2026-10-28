@@ -9,7 +9,7 @@ test('config: defaults are valid', () => {
   const c = loadConfig({});
   assert.equal(c.port, 8080);
   assert.equal(c.trustProxy, false);
-  assert.equal(c.escalation.enabled, false);
+  assert.equal('escalation' in c, false); // standalone: no external model config at all
   assert.ok(c.adapters.length > 0);
 });
 
@@ -33,7 +33,6 @@ test('config: every bad value is reported at once, by env var name', () => {
         CONF_MAX_LOW_TOKEN_RATIO: 'abc',
         RETRIEVAL_TOP_K: '0',
         RETRIEVAL_MIN_SCORE: '2',
-        ESCALATION_MAX_TOKENS: '1.5',
         MONGODB_URI: 'postgres://x',
         REQUEST_TIMEOUT_MS: '10',
       }),
@@ -46,7 +45,6 @@ test('config: every bad value is reported at once, by env var name', () => {
         'CONF_MAX_LOW_TOKEN_RATIO',
         'RETRIEVAL_TOP_K',
         'RETRIEVAL_MIN_SCORE',
-        'ESCALATION_MAX_TOKENS',
         'MONGODB_URI',
         'REQUEST_TIMEOUT_MS',
       ]) {
