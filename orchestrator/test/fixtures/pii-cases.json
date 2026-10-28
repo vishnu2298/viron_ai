@@ -1,0 +1,63 @@
+[
+  {
+    "input": "mail a.b@x.com call +91 98765 43210 card 4111 1111 1111 1111 pan ABCDE1234F",
+    "expected": "mail [EMAIL] call [PHONE] card [CARD] pan [PAN]"
+  },
+  {
+    "input": "Contact: First.Last+tag@Sub.Example.CO.uk today",
+    "expected": "Contact: [EMAIL] today"
+  },
+  {
+    "input": "token sk-abcdefghijklmnop1234 and key_ABCDEFGHIJKLMNOPQRST",
+    "expected": "token [SECRET] and [SECRET]"
+  },
+  {
+    "input": "ssn 123-45-6789 is synthetic",
+    "expected": "ssn [SSN] is synthetic"
+  },
+  {
+    "input": "aadhaar 1234 5678 9012 and 1234-5678-9012",
+    "expected": "aadhaar [AADHAAR] and [AADHAAR]"
+  },
+  {
+    "input": "card 4111-1111-1111-1111 and 4111111111111111",
+    "expected": "card [CARD] and [CARD]"
+  },
+  {
+    "input": "US phone (555) 123-4567 and 555-123-4567",
+    "expected": "US phone [PHONE] and [PHONE]"
+  },
+  {
+    "input": "India +91-98765-43210 or 098765 43210",
+    "expected": "India [PHONE] or [PHONE]"
+  },
+  {
+    "input": "short numbers 12345 and year 2026 stay",
+    "expected": "short numbers 12345 and year 2026 stay"
+  },
+  {
+    "input": "date 2026-10-28 and version 1.2.3 stay",
+    "expected": "date 2026-10-28 and version 1.2.3 stay"
+  },
+  {
+    "input": "नमस्ते, मेरा नंबर +91 98765 43210 है और ईमेल राम@example.com नहीं है",
+    "expected": "नमस्ते, मेरा नंबर [PHONE] है और ईमेल राम@example.com नहीं है",
+    "note": "known gap: non-ASCII email local parts are not redacted by either implementation (follow-up)"
+  },
+  {
+    "input": "हिन्दी अंक ९८७६५ ४३२१० unchanged",
+    "expected": "हिन्दी अंक ९८७६५ ४३२१० unchanged"
+  },
+  {
+    "input": "nbsp phone 98765 43210 here",
+    "expected": "nbsp phone [PHONE] here"
+  },
+  {
+    "input": "too long 1234567890123456789012 digits",
+    "expected": "too long 1234567890123456789012 digits"
+  },
+  {
+    "input": "PAN lower abcde1234f is not matched",
+    "expected": "PAN lower abcde1234f is not matched"
+  }
+]
