@@ -3,7 +3,7 @@
 Every dataset used to train Viron is recorded here with its source and license (CLAUDE.md, standalone rule 3).
 Nothing is downloaded until the user approves a source in the **Decision** section.
 
-Status: **awaiting decision** (M1, task 1). Researched 2026-10-28 from dataset cards, papers and announcements via search;
+Status: **decided 2026-10-28 — Mix B** (M1, task 1). Researched 2026-10-28 from dataset cards, papers and announcements via search;
 Hugging Face and several project sites could not be opened directly from the build environment, so figures marked
 **verify** must be checked on the dataset card before download.
 
@@ -64,6 +64,22 @@ Hindi text exists. Choose **C** if quality per token matters most and web-crawl 
 3. Hindi share for the first `tiny` run (default proposal: 15%).
 
 ## Decision
-- Mix: _pending_
-- Sources approved (name · version/date · license · URL · tokens used): _pending_
-- Attribution notices file: _pending (needed for CC-BY / ODC-By sources)_
+Decided 2026-10-28 by the project owner ("do whatever is feasible and open source"): **Mix B** — only datasets
+released under open licenses, with the strictest available source per language.
+
+- **English:** Common Pile v0.1 (Comma filtered training mix). Per-document open licenses.
+- **Hindi:** Wikipedia `hi` (CC BY-SA 4.0) + Sangraha **verified** `hin` split (CC BY 4.0, AI4Bharat).
+- **Excluded:** Sangraha *synthetic* (machine translation = other-AI output), Sangraha *unverified*, every
+  web-crawl compilation (FineWeb, FineWeb-2, IndicCorp, mC4-derived).
+- **Share-alike:** CC BY-SA sources accepted (standard practice for Wikipedia).
+- **First `tiny` run mixture:** 85% English / 15% Hindi by tokens.
+- **Attribution:** keep a `DATA_NOTICES.md` beside released checkpoints listing every CC-BY / CC-BY-SA source.
+
+| Source | Version / date | License | Location | Tokens used |
+|---|---|---|---|---|
+| Common Pile — Comma v0.1 training mix | v0.1 (2025) | per-document open (see dataset card) | Hugging Face `common-pile/comma_v0.1_training_dataset` (**verify** repo id) | _filled by download manifest_ |
+| Wikipedia `hi` | latest dump at download time | CC BY-SA 4.0 | Hugging Face `wikimedia/wikipedia` config `<date>.hi` (**verify**) | _filled by download manifest_ |
+| Sangraha verified `hin` | 2024 release | CC BY 4.0 | Hugging Face `ai4bharat/sangraha`, `verified/hin` (**verify** path) | _filled by download manifest_ |
+
+The exact files, byte counts and estimated tokens of each download are written to
+`model/data/raw/<source>/manifest.json` by `scripts/download_data.py`; copy the totals here when a run uses them.
