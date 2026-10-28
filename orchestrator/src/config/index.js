@@ -3,6 +3,13 @@ const path = require('path');
 
 const num = (v, d) => (v === undefined || v === '' ? d : Number(v));
 
+// Express `trust proxy`: 'true'/'false', a hop count, or a comma list of subnets/names (e.g. 'loopback')
+function trustProxy(v) {
+  if (v === undefined || v === '' || v === 'false') return false;
+  if (v === 'true') return true;
+  return /^\d+$/.test(v) ? Number(v) : v;
+}
+
 function loadAdapters() {
   const file = process.env.ADAPTERS_FILE || path.join(__dirname, 'adapters.json');
   return fs.existsSync(file) ? JSON.parse(fs.readFileSync(file, 'utf8')) : [];
@@ -12,6 +19,9 @@ module.exports = {
   port: num(process.env.PORT, 8080),
   env: process.env.NODE_ENV || 'development',
   apiKey: process.env.ORCHESTRATOR_API_KEY || '',
+  trustProxy: trustProxy(process.env.TRUST_PROXY),
+  // Only enable when the origin is reachable solely through Cloudflare; otherwise the header is spoofable
+  trustCfIp: process.env.TRUST_CF_IP === 'true',
 
   // Elastic tiers: same model family at two sizes, each served by llama.cpp (OpenAI-compatible)
   tiers: {
