@@ -9,3 +9,7 @@ __pycache__/
 # Claude Code personal overrides
 .claude/settings.local.json
 .dev.vars
+.ruff_cache/
+.pytest_cache/
+coverage/
+.coverage

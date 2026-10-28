@@ -8,13 +8,20 @@ IMPORTANT: an adapter is tied to its base weights. Train separately for each tie
 Usage:
   python train_lora.py --base <hf-model-id> --data data/support.jsonl --out adapters/support-core
 """
+
 import argparse
 
 import torch
 from datasets import load_dataset
 from peft import LoraConfig, get_peft_model, prepare_model_for_kbit_training
-from transformers import (AutoModelForCausalLM, AutoTokenizer, BitsAndBytesConfig,
-                          DataCollatorForLanguageModeling, Trainer, TrainingArguments)
+from transformers import (
+    AutoModelForCausalLM,
+    AutoTokenizer,
+    BitsAndBytesConfig,
+    DataCollatorForLanguageModeling,
+    Trainer,
+    TrainingArguments,
+)
 
 
 def main():
@@ -34,14 +41,25 @@ def main():
     model = AutoModelForCausalLM.from_pretrained(
         args.base,
         quantization_config=BitsAndBytesConfig(
-            load_in_4bit=True, bnb_4bit_quant_type="nf4",
-            bnb_4bit_compute_dtype=torch.bfloat16, bnb_4bit_use_double_quant=True),
+            load_in_4bit=True,
+            bnb_4bit_quant_type="nf4",
+            bnb_4bit_compute_dtype=torch.bfloat16,
+            bnb_4bit_use_double_quant=True,
+        ),
         device_map="auto",
     )
     model = prepare_model_for_kbit_training(model)
-    model = get_peft_model(model, LoraConfig(
-        r=args.rank, lora_alpha=args.rank * 2, lora_dropout=0.05, bias="none", task_type="CAUSAL_LM",
-        target_modules=["q_proj", "k_proj", "v_proj", "o_proj", "gate_proj", "up_proj", "down_proj"]))
+    model = get_peft_model(
+        model,
+        LoraConfig(
+            r=args.rank,
+            lora_alpha=args.rank * 2,
+            lora_dropout=0.05,
+            bias="none",
+            task_type="CAUSAL_LM",
+            target_modules=["q_proj", "k_proj", "v_proj", "o_proj", "gate_proj", "up_proj", "down_proj"],
+        ),
+    )
     model.print_trainable_parameters()
 
     ds = load_dataset("json", data_files=args.data, split="train").train_test_split(test_size=0.05, seed=42)
@@ -55,12 +73,23 @@ def main():
     trainer = Trainer(
         model=model,
         args=TrainingArguments(
-            output_dir=args.out, num_train_epochs=args.epochs, learning_rate=args.lr,
-            per_device_train_batch_size=4, gradient_accumulation_steps=4,
-            lr_scheduler_type="cosine", warmup_ratio=0.03, bf16=True,
-            logging_steps=10, eval_strategy="epoch", save_strategy="epoch",
-            save_total_limit=1, load_best_model_at_end=True, report_to="none"),
-        train_dataset=ds["train"], eval_dataset=ds["test"],
+            output_dir=args.out,
+            num_train_epochs=args.epochs,
+            learning_rate=args.lr,
+            per_device_train_batch_size=4,
+            gradient_accumulation_steps=4,
+            lr_scheduler_type="cosine",
+            warmup_ratio=0.03,
+            bf16=True,
+            logging_steps=10,
+            eval_strategy="epoch",
+            save_strategy="epoch",
+            save_total_limit=1,
+            load_best_model_at_end=True,
+            report_to="none",
+        ),
+        train_dataset=ds["train"],
+        eval_dataset=ds["test"],
         data_collator=DataCollatorForLanguageModeling(tok, mlm=False),
     )
     trainer.train()

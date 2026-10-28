@@ -7,13 +7,14 @@ so they are exactly the gap a new LoRA adapter should close.
 Usage:
   python export_traces.py --out data/ --days 30 --min-examples 200
 """
+
 import argparse
 import hashlib
 import json
 import logging
 import os
 from collections import defaultdict
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 logging.basicConfig(level=logging.INFO, format='{"level":"%(levelname)s","event":"%(message)s"}')
@@ -35,11 +36,13 @@ def to_example(trace: dict) -> dict | None:
     a = (trace.get("answer") or "").strip()
     if len(q) < 3 or len(a) < 3:
         return None
-    return {"messages": [
-        {"role": "system", "content": SYSTEM},
-        {"role": "user", "content": q},
-        {"role": "assistant", "content": a},
-    ]}
+    return {
+        "messages": [
+            {"role": "system", "content": SYSTEM},
+            {"role": "user", "content": q},
+            {"role": "assistant", "content": a},
+        ]
+    }
 
 
 def bucket(trace: dict) -> str:
@@ -74,7 +77,7 @@ def main():
 
     client = MongoClient(os.environ["MONGODB_URI"])
     col = client[os.environ.get("MONGODB_DB", "viron_ai")]["traces"]
-    since = datetime.now(timezone.utc) - timedelta(days=args.days)
+    since = datetime.now(UTC) - timedelta(days=args.days)
     cursor = col.find(
         {"escalated": True, "createdAt": {"$gte": since}},
         {"message": 1, "answer": 1, "decision.adapters": 1},

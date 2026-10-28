@@ -3,10 +3,14 @@
   "version": "0.1.0",
   "description": "Viron AI: small local model that expands via adapters, retrieval and escalation",
   "main": "src/server.js",
-  "engines": { "node": ">=20" },
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
     "start": "node src/server.js",
-    "test": "NODE_ENV=test node --test test/*.test.js"
+    "test": "NODE_ENV=test node --test test/*.test.js",
+    "lint": "eslint . && prettier --check .",
+    "format": "prettier --write ."
   },
   "dependencies": {
     "express": "^4.21.0",
@@ -15,5 +19,12 @@
     "joi": "^17.13.0",
     "mongodb": "^6.9.0",
     "winston": "^3.14.0"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.39.5",
+    "eslint": "^9.39.5",
+    "eslint-config-prettier": "^10.1.8",
+    "globals": "^17.13.0",
+    "prettier": "^3.9.10"
   }
 }

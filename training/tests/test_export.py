@@ -1,12 +1,12 @@
 import sys
 from pathlib import Path
+
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from export_traces import build_datasets, strip_context
 
 
 def t(msg, ans, adapter=None):
-    return {"message": msg, "answer": ans,
-            "decision": {"adapters": [{"name": adapter}] if adapter else []}}
+    return {"message": msg, "answer": ans, "decision": {"adapters": [{"name": adapter}] if adapter else []}}
 
 
 def test_buckets_dedupes_and_strips_context():

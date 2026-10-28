@@ -1,8 +1,20 @@
 [
-  { "id": 0, "name": "code", "scale": 1.0,
-    "keywords": ["code", "function", "bug", "error", "api", "node", "angular", "mongo", "query", "regex", "stack trace"] },
-  { "id": 1, "name": "commerce", "scale": 1.0,
-    "keywords": ["product", "price", "deal", "discount", "buy", "compare", "recommend", "brand", "coupon"] },
-  { "id": 2, "name": "support", "scale": 0.8,
-    "keywords": ["refund", "account", "login", "otp", "reward", "points", "cashback", "complaint"] }
+  {
+    "id": 0,
+    "name": "code",
+    "scale": 1.0,
+    "keywords": ["code", "function", "bug", "error", "api", "node", "angular", "mongo", "query", "regex", "stack trace"]
+  },
+  {
+    "id": 1,
+    "name": "commerce",
+    "scale": 1.0,
+    "keywords": ["product", "price", "deal", "discount", "buy", "compare", "recommend", "brand", "coupon"]
+  },
+  {
+    "id": 2,
+    "name": "support",
+    "scale": 0.8,
+    "keywords": ["refund", "account", "login", "otp", "reward", "points", "cashback", "complaint"]
+  }
 ]

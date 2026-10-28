@@ -1,5 +1,6 @@
 const logger = require('../utils/logger');
-module.exports = (env) => (err, req, res, next) => { // eslint-disable-line no-unused-vars
+module.exports = (env) => (err, req, res, _next) => {
+  // Express identifies error handlers by arity, so the 4th param must stay
   const status = err.statusCode || 500;
   logger.error({ event: 'request.error', url: req.originalUrl, code: err.code, error: err.message });
   res.status(status).json({

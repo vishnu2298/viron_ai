@@ -10,7 +10,10 @@ const CONF = { minMeanLogprob: -0.9, lowTokenLogprob: -2.5, maxLowTokenRatio: 0.
 test('router: short simple question shrinks to tiny tier', () => {
   const d = router.route('What is the refund window?', adapters);
   assert.equal(d.tier, 'tiny');
-  assert.deepEqual(d.adapters.map((a) => a.name), ['support']);
+  assert.deepEqual(
+    d.adapters.map((a) => a.name),
+    ['support'],
+  );
   assert.equal(d.forceEscalate, false);
 });
 

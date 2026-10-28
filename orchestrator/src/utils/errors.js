@@ -7,6 +7,8 @@ class AppError extends Error {
   }
 }
 class UpstreamError extends AppError {
-  constructor(service, message) { super(`${service}: ${message}`, 502, 'UPSTREAM_ERROR'); }
+  constructor(service, message) {
+    super(`${service}: ${message}`, 502, 'UPSTREAM_ERROR');
+  }
 }
 module.exports = { AppError, UpstreamError };
