@@ -11,7 +11,7 @@ North-star metric: `localResolutionRate` (`GET /api/v1/stats`) at equal or bette
 - [x] Edge: cache only answers that were confident locally or came from escalation (check `meta.attempts`); never cache `edge-fallback`.
 - [x] Orchestrator: send retrieved context as a separate system/context message, not prefixed into the user turn, so history stays clean. Update `export_traces.py` accordingly.
 - [x] Config validation at startup (Joi schema over `config/index.js`); fail fast on bad values.
-- [ ] Graceful shutdown: drain in-flight requests before closing Mongo.
+- [x] Graceful shutdown: drain in-flight requests before closing Mongo.
 - [ ] Pin `llama.cpp` server image to a tag/digest instead of `:server`.
 
 ## Phase 1 — Real models (needs user decision: base model family + license)
