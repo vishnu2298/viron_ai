@@ -37,6 +37,7 @@ docker compose up -d
 curl -s localhost:8080/api/v1/chat -H 'authorization: Bearer change-me' \
   -H 'content-type: application/json' -d '{"message":"How do refunds work?"}'
 ```
+Config is validated at startup (`orchestrator/src/config/load.js`); an invalid env value aborts boot with every problem listed by variable name.
 Until adapters exist, remove the `--lora` lines from `llm-core`.
 The per-request `lora` field needs a recent `llama-server`; verify against your image version.
 
