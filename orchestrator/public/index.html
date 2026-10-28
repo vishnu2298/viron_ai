@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Viron Console</title>
+    <meta
+      name="description"
+      content="Live verification console for the Viron model: chat with it and inspect how each answer was produced."
+    />
+    <link rel="stylesheet" href="styles.css" />
+    <script type="module" src="app.mjs"></script>
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="brand">
+        <span class="logo" aria-hidden="true">V</span>
+        <div>
+          <h1>Viron Console</h1>
+          <p class="sub">Live verification · standalone model</p>
+        </div>
+      </div>
+      <div class="status" id="status" aria-live="polite">
+        <span class="chip" id="health"><span class="dot"></span><span class="label">checking…</span></span>
+        <span class="chip" id="stat-total" title="Requests in the stats window">— requests</span>
+        <span class="chip" id="stat-tiny" title="Share of requests served by the tiny tier">tiny —</span>
+        <button class="icon-btn" id="open-settings" aria-label="Settings" title="Settings">⚙</button>
+      </div>
+    </header>
+
+    <main class="layout">
+      <section class="chat" aria-label="Conversation">
+        <div class="thread" id="thread">
+          <div class="empty" id="empty">
+            <h2>Talk to Viron</h2>
+            <p>Every answer shows which tier produced it and whether it passed the confidence gate. Select an answer to inspect it.</p>
+            <div class="suggestions" id="suggestions">
+              <button type="button">What is the capital of India?</button>
+              <button type="button">भारत की राजधानी क्या है?</button>
+              <button type="button">Explain why the sky is blue, step by step.</button>
+              <button type="button">Write a short story about a lighthouse.</button>
+            </div>
+          </div>
+        </div>
+
+        <form class="composer" id="composer" autocomplete="off">
+          <textarea id="input" rows="1" maxlength="8000" placeholder="Message Viron…" aria-label="Message" required></textarea>
+          <div class="composer-row">
+            <label class="tier-select">
+              <span>Tier</span>
+              <select id="tier" aria-label="Tier override">
+                <option value="">Auto (router)</option>
+                <option value="tiny">Force tiny</option>
+                <option value="core">Force core</option>
+              </select>
+            </label>
+            <button type="button" class="ghost" id="clear">New chat</button>
+            <button type="submit" class="send" id="send" aria-label="Send">Send ↵</button>
+          </div>
+        </form>
+      </section>
+
+      <aside class="inspector" id="inspector" aria-label="Answer inspector">
+        <div class="inspector-empty" id="inspector-empty">
+          <h3>Inspector</h3>
+          <p>Send a message, then select an answer to see the routing decision, each tier attempt and its confidence.</p>
+        </div>
+        <div class="inspector-body" id="inspector-body" hidden>
+          <div class="verdict" id="verdict"></div>
+          <h4>Ladder</h4>
+          <ol class="ladder" id="ladder"></ol>
+          <h4>Routing</h4>
+          <dl class="facts" id="facts"></dl>
+          <details class="raw">
+            <summary>Raw response meta</summary>
+            <pre id="raw"></pre>
+          </details>
+        </div>
+      </aside>
+    </main>
+
+    <dialog id="settings">
+      <form method="dialog" class="settings-form">
+        <h3>Settings</h3>
+        <label>
+          API key
+          <input type="password" id="api-key" placeholder="ORCHESTRATOR_API_KEY (empty in dev mode)" autocomplete="off" />
+        </label>
+        <p class="hint">Kept only in this browser tab (sessionStorage) and sent as a Bearer token.</p>
+        <div class="settings-actions">
+          <button value="cancel" class="ghost">Cancel</button>
+          <button value="save" class="send" id="save-settings">Save</button>
+        </div>
+      </form>
+    </dialog>
+  </body>
+</html>

@@ -61,6 +61,18 @@ LLAMA_CPP=~/llama.cpp BASE=<local-viron-core-checkpoint> NAME=core ./build_artif
 Adapters are tied to their base weights: train per Viron tier. `--base`/`BASE` must be a local Viron checkpoint
 exported in HF layout (roadmap M5); Hub model IDs are rejected. Until M5 lands, this loop has no valid input.
 
+## Live verification console
+Open `http://localhost:8080/ui/` on a running orchestrator: chat with Viron and inspect every answer. You see which tier
+served it, each tier attempt with its confidence (average token probability, mean logprob, low-token ratio, latency),
+the router's decision, adapters and retrieved-context count. Set the API key under ⚙ (kept in the tab's sessionStorage).
+
+Before GGUF export (M5), serve a PyTorch checkpoint directly as a tier:
+```bash
+cd model && python serve.py --ckpt checkpoints/tiny/best.pt --port 8081 --name viron-tiny
+cd orchestrator && TINY_MODEL_URL=http://localhost:8081 CORE_MODEL_URL=http://localhost:8081 npm start
+```
+`model/serve.py` speaks the same OpenAI-compatible `/v1/chat/completions` (with `logprobs`) as `llama-server`.
+
 ## Behind a proxy
 - `TRUST_PROXY` is passed to Express `trust proxy` (`false` default, `true`, a hop count like `1`, or subnets/names like `loopback`), so `req.ip` reflects `X-Forwarded-For` from trusted hops only.
 - `TRUST_CF_IP=true` keys the rate limiter on `CF-Connecting-IP`. Enable it only when the origin accepts traffic solely from Cloudflare (Tunnel or IP allow-list); otherwise clients can spoof the header.
