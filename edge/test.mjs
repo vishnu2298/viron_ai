@@ -7,18 +7,25 @@ const kv = new Map();
 const env = {
   ORIGIN_URL: 'http://127.0.0.1:1',
   CACHE_TTL_SECONDS: '60',
-  FALLBACK_MODEL: 'm',
   CACHE: { get: async (k) => (kv.has(k) ? JSON.parse(kv.get(k)) : null), put: async (k, v) => kv.set(k, v) },
-  AI: { run: async () => ({ response: 'fallback answer' }) },
 };
+// Any use of a Workers AI binding is a bug now. Non-enumerable so `{ ...env }` copies in tests skip it.
+Object.defineProperty(env, 'AI', {
+  get() {
+    throw new Error('edge must not call Workers AI');
+  },
+});
 const ctx = { waitUntil: (p) => p };
 const call = (b) => worker.fetch(new Request('http://x/api/v1/chat', { method: 'POST', body: JSON.stringify(b) }), env, ctx);
 
 assert.equal(await cacheKey('Hello  World'), await cacheKey('hello world'));
+// Origin down: 503 with the standard error shape; cache hits are still served
 let r = await call({ message: 'hi' });
-assert.equal(r.headers.get('x-elastic-tier'), 'edge-fallback');
+assert.equal(r.status, 503);
+assert.deepEqual(await r.json(), { success: false, message: 'Origin unavailable', code: 'ORIGIN_UNAVAILABLE' });
 kv.set(await cacheKey('cached q'), JSON.stringify({ data: { answer: 'from cache' }, meta: {} }));
 r = await call({ message: 'Cached Q' });
+assert.equal(r.status, 200);
 assert.equal((await r.json()).data.answer, 'from cache');
 assert.equal((await call({})).status, 400);
 
@@ -78,9 +85,26 @@ await liveCall('maybe thing');
 assert.ok(!kv.has(await cacheKey('maybe thing')));
 origin.close();
 
-// Origin down -> edge-fallback answer is never cached
+// Origin down -> 503 and nothing cached
 kv.clear();
-await call({ message: 'fallback q' });
+assert.equal((await call({ message: 'down q' })).status, 503);
 assert.equal(kv.size, 0);
+
+// Origin answers 5xx (e.g. NO_TIER_AVAILABLE) -> edge returns 503, nothing cached
+const failing = http.createServer((req, res) => {
+  req.resume();
+  req.on('end', () => {
+    res.statusCode = 503;
+    res.setHeader('content-type', 'application/json');
+    res.end(JSON.stringify({ success: false, message: 'No tier could produce an answer', code: 'NO_TIER_AVAILABLE' }));
+  });
+});
+await new Promise((resolve) => failing.listen(0, resolve));
+const failEnv = { ...env, ORIGIN_URL: `http://127.0.0.1:${failing.address().port}` };
+r = await worker.fetch(new Request('http://x/api/v1/chat', { method: 'POST', body: JSON.stringify({ message: 'q5' }) }), failEnv, ctx);
+assert.equal(r.status, 503);
+assert.equal((await r.json()).code, 'ORIGIN_UNAVAILABLE');
+assert.equal(kv.size, 0);
+failing.close();
 
 console.log('edge tests passed');

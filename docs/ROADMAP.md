@@ -5,7 +5,7 @@ North-star: best validation loss / eval score per dollar of compute, then local 
 
 ## M0 — Go standalone (cleanup)
 - [x] Remove `escalation.service.js`, its config/env/tests; the ladder ends at the `core` tier. Return 503 `NO_TIER_AVAILABLE` if all tiers fail.
-- [ ] Edge: remove Workers AI fallback and the `[ai]` binding; on origin failure return 503 (cache hits still served).
+- [x] Edge: remove Workers AI fallback and the `[ai]` binding; on origin failure return 503 (cache hits still served).
 - [ ] Edge: constant-time key compare; cache only confident local answers (check `meta.attempts`).
 - [ ] Mark `training/train_lora.py` as targeting Viron checkpoints (M5); remove HF-pretrained-base assumptions from docs.
 - [ ] Update root README diagram and `.env.example` to the standalone architecture.

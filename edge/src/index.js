@@ -2,8 +2,8 @@
  * Edge tier (Cloudflare Worker):
  *  1. Auth at the edge.
  *  2. Exact-match answer cache in KV -> zero model compute for repeated questions.
- *  3. Forward to the orchestrator (tiny -> core -> escalation ladder).
- *  4. If the origin is down, degrade to a Workers AI small model.
+ *  3. Forward to the orchestrator (tiny -> core ladder).
+ *  4. If the origin is down, return 503; cached answers are still served. No external model is ever called.
  * Only stateless questions (no history) are cached, and only confident local or teacher answers.
  */
 const json = (body, status = 200, extra = {}) =>
@@ -86,19 +86,9 @@ export default {
       }
       return json(out, res.status, { 'x-elastic-tier': out.meta?.servedBy || 'origin' });
     } catch (err) {
-      const ai = await env.AI.run(env.FALLBACK_MODEL, {
-        messages: [...(body.history || []), { role: 'user', content: body.message }],
-        max_tokens: 512,
-      });
-      return json(
-        {
-          success: true,
-          data: { answer: ai.response },
-          meta: { servedBy: 'edge-fallback', degraded: true, reason: String(err.message || err) },
-        },
-        200,
-        { 'x-elastic-tier': 'edge-fallback' },
-      );
+      // Standalone: no substitute model at the edge. Internal detail stays in logs, not in the response.
+      console.error(JSON.stringify({ event: 'origin.unavailable', error: String(err.message || err) }));
+      return json({ success: false, message: 'Origin unavailable', code: 'ORIGIN_UNAVAILABLE' }, 503, { 'retry-after': '5' });
     }
   },
 };
