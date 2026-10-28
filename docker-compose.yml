@@ -1,6 +1,6 @@
 # Whole Viron AI on one box. Put GGUF files in ./models (see training/build_artifacts.sh).
 
-# llama.cpp server pinned by release tag (readable) + multi-arch index digest (immutable).
+# llama.cpp server (tiny + core tiers) pinned by release tag (readable) + multi-arch index digest (immutable).
 # Per-request `lora` and logprobs depend on the server build; bump deliberately (README "Upgrading llama.cpp").
 x-llama-image: &llama-image ghcr.io/ggml-org/llama.cpp:server-b11946@sha256:d880b2a0e478795ce99d0a275732f5a50e579cb234ae7d2d3815afc909fd02f2
 
@@ -24,13 +24,6 @@ services:
     volumes: ["./models:/models:ro"]
     restart: unless-stopped
 
-  embedder:
-    image: *llama-image
-    command: >
-      -m /models/embed.gguf --host 0.0.0.0 --port 8083 --embedding --pooling mean
-    volumes: ["./models:/models:ro"]
-    restart: unless-stopped
-
   mongo:
     image: mongodb/mongodb-atlas-local:latest   # supports $vectorSearch locally
     ports: ["27017:27017"]
@@ -43,10 +36,10 @@ services:
     environment:
       TINY_MODEL_URL: http://llm-tiny:8081
       CORE_MODEL_URL: http://llm-core:8082
-      EMBED_URL: http://embedder:8083
+      # No EMBED_URL: retrieval uses MongoDB text search until Viron provides its own embeddings (standalone rule 2)
       MONGODB_URI: mongodb://mongo:27017/?directConnection=true
     ports: ["8080:8080"]
-    depends_on: [llm-tiny, llm-core, embedder, mongo]
+    depends_on: [llm-tiny, llm-core, mongo]
     restart: unless-stopped
 
 volumes:
