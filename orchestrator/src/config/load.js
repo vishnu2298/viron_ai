@@ -52,6 +52,10 @@ function buildConfig(env) {
   };
 }
 
+const GENERATE_KEY =
+  '"ORCHESTRATOR_API_KEY" must be a random secret of at least 32 characters when NODE_ENV=production ' +
+  `(generate one: node -e "console.log(require('crypto').randomBytes(32).toString('hex'))")`;
+
 // Labels are the env var names so a failed boot says exactly what to fix
 const httpUrl = (label) =>
   Joi.string()
@@ -63,7 +67,17 @@ const logprob = (label) => Joi.number().max(0).label(label).required();
 const schema = Joi.object({
   port: Joi.number().port().label('PORT').required(),
   env: Joi.string().label('NODE_ENV').required(),
-  apiKey: Joi.string().allow('').label('ORCHESTRATOR_API_KEY'),
+  // Production must never run open (empty key = dev mode) or with the .env.example placeholder
+  apiKey: Joi.when('env', {
+    is: 'production',
+    then: Joi.string().min(32).invalid('change-me').required().messages({
+      'any.required': GENERATE_KEY,
+      'string.empty': GENERATE_KEY,
+      'string.min': GENERATE_KEY,
+      'any.invalid': GENERATE_KEY,
+    }),
+    otherwise: Joi.string().allow(''),
+  }).label('ORCHESTRATOR_API_KEY'),
   trustProxy: Joi.alternatives(Joi.boolean(), Joi.number().integer().min(0), Joi.string().min(1)).label('TRUST_PROXY'),
   trustCfIp: Joi.boolean().label('TRUST_CF_IP'),
   tiers: Joi.object({ tiny: tier('TINY_MODEL_URL').required(), core: tier('CORE_MODEL_URL').required() }).required(),
