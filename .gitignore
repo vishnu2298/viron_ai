@@ -5,3 +5,7 @@ training/data/
 training/adapters/
 __pycache__/
 .wrangler/
+
+# Claude Code personal overrides
+.claude/settings.local.json
+.dev.vars

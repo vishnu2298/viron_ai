@@ -67,3 +67,6 @@ cd edge && node test.mjs                 # cache + fallback
 - Logprob confidence is a proxy. Add a verifier step for high-stakes domains.
 - Tiers are discrete model sizes. True nested-weight elasticity (one checkpoint, variable depth) is phase 3.
 - Exact-match edge cache only. Semantic caching is a next step.
+
+## Contributing with Claude Code
+See `CLAUDE.md` for project rules and `docs/ROADMAP.md` for the task list.
