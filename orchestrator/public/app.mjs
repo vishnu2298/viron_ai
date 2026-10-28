@@ -63,6 +63,7 @@ async function refreshStatus() {
     const s = ok ? summarizeStats(body?.data) : null;
     $('stat-total').textContent = s ? `${s.total} requests · ${s.windowHours}h` : 'stats unavailable';
     $('stat-tiny').textContent = s && s.tinyShare !== null ? `tiny ${s.tinyShare}%` : 'tiny —';
+    $('stat-confident').textContent = s && s.confidentShare !== null ? `confident ${s.confidentShare}%` : 'confident —';
   } catch {
     $('stat-total').textContent = 'stats unavailable';
   }

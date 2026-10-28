@@ -13,11 +13,12 @@ function createChatController({ elastic, traceRepo }) {
         const hours = Math.min(Number(req.query.hours) || 24, 24 * 30);
         const rows = traceRepo ? await traceRepo.stats(hours) : [];
         const total = rows.reduce((a, r) => a + r.count, 0);
-        const escalated = rows.find((r) => r._id === 'escalation')?.count || 0;
+        // Standalone runtime: "resolved locally" = answered by a tier that passed the confidence gate
+        const confident = rows.reduce((a, r) => a + (r.confident || 0), 0);
         res.json({
           success: true,
           message: 'ok',
-          data: { windowHours: hours, total, localResolutionRate: total ? Number((1 - escalated / total).toFixed(3)) : null, byTier: rows },
+          data: { windowHours: hours, total, localResolutionRate: total ? Number((confident / total).toFixed(3)) : null, byTier: rows },
         });
       } catch (err) {
         next(err);

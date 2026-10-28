@@ -29,7 +29,8 @@ When neither tier is confident, the core answer is still returned (degrade, don'
 ## How it improves
 Each training run is logged in `docs/EXPERIMENTS.md` and gated on validation loss/eval per dollar (`docs/ROADMAP.md`).
 At runtime, redacted traces show where Viron is unsure; they feed data selection, SFT, and per-skill LoRA adapters.
-**North-star:** best eval score per dollar of compute, then the share of requests answered confidently by `tiny`.
+**North-star:** best eval score per dollar of compute, then `localResolutionRate` from `GET /api/v1/stats`: the share of
+answers whose serving tier passed the confidence gate (per-tier counts in `byTier[].confident`).
 
 ## Run
 ```bash
