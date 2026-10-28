@@ -15,9 +15,19 @@ export async function cacheKey(message) {
   return 'q:' + [...new Uint8Array(buf)].map((b) => b.toString(16).padStart(2, '0')).join('');
 }
 
-function authorized(req, env) {
+const sha256 = async (s) => new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(s)));
+
+// Compare fixed-length digests with no early exit, so timing reveals neither the key's length nor its prefix.
+export async function timingSafeEqual(a, b) {
+  const [x, y] = await Promise.all([sha256(a), sha256(b)]);
+  let diff = 0;
+  for (let i = 0; i < x.length; i++) diff |= x[i] ^ y[i];
+  return diff === 0;
+}
+
+async function authorized(req, env) {
   if (!env.EDGE_API_KEY) return true;
-  return (req.headers.get('authorization') || '') === `Bearer ${env.EDGE_API_KEY}`;
+  return timingSafeEqual(req.headers.get('authorization') || '', `Bearer ${env.EDGE_API_KEY}`);
 }
 
 export default {
@@ -25,7 +35,7 @@ export default {
     const url = new URL(req.url);
     if (url.pathname === '/health') return json({ status: 'ok' });
     if (url.pathname !== '/api/v1/chat' || req.method !== 'POST') return json({ success: false, code: 'NOT_FOUND' }, 404);
-    if (!authorized(req, env)) return json({ success: false, code: 'UNAUTHORIZED' }, 401);
+    if (!(await authorized(req, env))) return json({ success: false, code: 'UNAUTHORIZED' }, 401);
 
     let body;
     try {
