@@ -1,6 +1,7 @@
 // Minimal local test of the worker with mocked bindings
 import assert from 'node:assert/strict';
-import worker, { cacheKey, timingSafeEqual } from './src/index.js';
+import http from 'node:http';
+import worker, { cacheKey, shouldCache, timingSafeEqual } from './src/index.js';
 
 const kv = new Map();
 const env = {
@@ -35,5 +36,51 @@ assert.equal(await authCall('Bearer secret-kez'), 401); // same length, last cha
 assert.equal(await authCall('Bearer secret-key-longer'), 401);
 assert.equal(await authCall('secret-key'), 401);
 assert.equal(await authCall('Bearer secret-key'), 400); // authorized; then fails validation on the empty body
+
+// Cache policy: only confident local answers or escalation answers
+const ok = (meta) => ({ success: true, data: { answer: 'a' }, meta });
+const att = (tier, confident) => ({ tier, confident });
+assert.equal(shouldCache(200, ok({ servedBy: 'tiny', attempts: [att('tiny', true)] })), true);
+assert.equal(shouldCache(200, ok({ servedBy: 'core', attempts: [att('tiny', false), att('core', true)] })), true);
+assert.equal(shouldCache(200, ok({ servedBy: 'escalation', escalated: true, attempts: [att('tiny', false)] })), true);
+assert.equal(shouldCache(200, ok({ servedBy: 'tiny', attempts: [att('tiny', false)] })), false);
+// escalation failed after unsure local tiers: origin still answers from core, but it is not confident
+assert.equal(
+  shouldCache(200, ok({ servedBy: 'core', attempts: [att('tiny', false), att('core', false), { tier: 'escalation', error: 'x' }] })),
+  false,
+);
+assert.equal(shouldCache(200, ok({ servedBy: 'core', attempts: [{ tier: 'core', error: 'down' }] })), false);
+assert.equal(shouldCache(200, ok({ servedBy: 'tiny' })), false);
+assert.equal(shouldCache(200, ok({ servedBy: 'edge-fallback', attempts: [] })), false);
+assert.equal(shouldCache(200, ok({ servedBy: 'edge-cache', attempts: [att('tiny', true)] })), false);
+assert.equal(shouldCache(200, { success: false, meta: { servedBy: 'tiny', attempts: [att('tiny', true)] } }), false);
+assert.equal(shouldCache(429, ok({ servedBy: 'tiny', attempts: [att('tiny', true)] })), false);
+
+// Integration: fake origin decides confidence per message; check what lands in KV
+const origin = http.createServer((req, res) => {
+  let raw = '';
+  req.on('data', (c) => (raw += c));
+  req.on('end', () => {
+    const { message } = JSON.parse(raw);
+    const confident = message.startsWith('sure');
+    res.setHeader('content-type', 'application/json');
+    res.end(JSON.stringify(ok({ servedBy: 'tiny', escalated: false, attempts: [att('tiny', confident)] })));
+  });
+});
+await new Promise((resolve) => origin.listen(0, resolve));
+const live = { ...env, ORIGIN_URL: `http://127.0.0.1:${origin.address().port}` };
+const liveCall = (message) =>
+  worker.fetch(new Request('http://x/api/v1/chat', { method: 'POST', body: JSON.stringify({ message }) }), live, ctx);
+kv.clear();
+assert.equal((await liveCall('sure thing')).headers.get('x-elastic-tier'), 'tiny');
+assert.ok(kv.has(await cacheKey('sure thing')));
+await liveCall('maybe thing');
+assert.ok(!kv.has(await cacheKey('maybe thing')));
+origin.close();
+
+// Origin down -> edge-fallback answer is never cached
+kv.clear();
+await call({ message: 'fallback q' });
+assert.equal(kv.size, 0);
 
 console.log('edge tests passed');
