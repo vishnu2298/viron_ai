@@ -9,16 +9,19 @@ const { createElasticService } = require('./services/elastic.service');
 const { createKnowledgeRepository } = require('./repositories/knowledge.repository');
 const { createTraceRepository } = require('./repositories/trace.repository');
 const { createApp } = require('./app');
+const { createShutdown, createPendingTracker } = require('./shutdown');
 
 async function main() {
   const config = require('./config'); // validates on load; a bad value aborts startup via the catch below
   let mongo, knowledgeRepo, traceRepo;
+  const pending = createPendingTracker();
   if (config.mongo.uri) {
     mongo = await new MongoClient(config.mongo.uri, { maxPoolSize: 20 }).connect();
     const db = mongo.db(config.mongo.db);
     knowledgeRepo = createKnowledgeRepository(db);
-    traceRepo = createTraceRepository(db);
-    await Promise.all([knowledgeRepo.ensureIndexes(), traceRepo.ensureIndexes()]);
+    const traces = createTraceRepository(db);
+    traceRepo = { ...traces, save: (trace) => pending.track(traces.save(trace)) };
+    await Promise.all([knowledgeRepo.ensureIndexes(), traces.ensureIndexes()]);
   } else {
     logger.warn({ event: 'mongo.disabled', note: 'no MONGODB_URI: retrieval and tracing off' });
   }
@@ -37,11 +40,7 @@ async function main() {
     logger.info({ event: 'server.started', port: config.port, adapters: config.adapters.map((a) => a.name) }),
   );
 
-  const shutdown = async () => {
-    server.close();
-    if (mongo) await mongo.close();
-    process.exit(0);
-  };
+  const shutdown = createShutdown({ server, mongo, pending });
   process.on('SIGTERM', shutdown);
   process.on('SIGINT', shutdown);
 }
