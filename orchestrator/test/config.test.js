@@ -87,3 +87,13 @@ test('config: adapter registry is validated', () => {
   withAdapters('{oops', (f) => assert.throws(() => loadConfig({ ADAPTERS_FILE: f }), /not valid JSON/));
   assert.deepEqual(loadConfig({ ADAPTERS_FILE: '/nonexistent/adapters.json' }).adapters, []);
 });
+
+test('config: production requires a strong ORCHESTRATOR_API_KEY', () => {
+  const prod = (key) => () => loadConfig({ NODE_ENV: 'production', ...(key === undefined ? {} : { ORCHESTRATOR_API_KEY: key }) });
+  for (const bad of [undefined, '', 'change-me', 'short-key']) {
+    assert.throws(prod(bad), /ORCHESTRATOR_API_KEY.*at least 32 characters.*randomBytes/, String(bad));
+  }
+  const key = 'a'.repeat(64);
+  assert.equal(prod(key)().apiKey, key);
+  assert.equal(loadConfig({ NODE_ENV: 'development' }).apiKey, ''); // dev mode stays open
+});

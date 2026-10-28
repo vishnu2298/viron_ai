@@ -34,7 +34,8 @@ answers whose serving tier passed the confidence gate (per-tier counts in `byTie
 
 ## Run
 ```bash
-cp .env.example .env               # set keys
+cp .env.example .env               # then set ORCHESTRATOR_API_KEY to a generated secret:
+node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
 # 1. train Viron checkpoints from scratch (model/README.md); no pretrained weights are used
 # 2. export to GGUF into ./models (roadmap M5)
 docker compose up -d
