@@ -6,7 +6,7 @@ function createTraceRepository(db) {
   const col = db.collection('traces');
   return {
     async ensureIndexes() {
-      await col.createIndex({ escalated: 1, createdAt: -1 });
+      await col.createIndex({ confident: 1, createdAt: -1 });
       await col.createIndex({ 'decision.adapters.name': 1, createdAt: -1 });
       await col.createIndex({ createdAt: 1 }, { expireAfterSeconds: 60 * 60 * 24 * 90 }); // 90-day retention
     },
@@ -18,7 +18,15 @@ function createTraceRepository(db) {
       return col
         .aggregate([
           { $match: { createdAt: { $gte: since } } },
-          { $group: { _id: '$servedBy', count: { $sum: 1 }, avgLatencyMs: { $avg: '$latencyMs' } } },
+          {
+            $group: {
+              _id: '$servedBy',
+              count: { $sum: 1 },
+              // traces written before the `confident` field existed count as not confident
+              confident: { $sum: { $cond: [{ $eq: ['$confident', true] }, 1, 0] } },
+              avgLatencyMs: { $avg: '$latencyMs' },
+            },
+          },
           { $sort: { count: -1 } },
         ])
         .toArray();

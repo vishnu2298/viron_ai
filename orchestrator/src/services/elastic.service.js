@@ -72,10 +72,13 @@ function createElasticService({ router, retrieval, inference, confidence, traceR
       throw e;
     }
 
+    // Did the tier that produced the answer pass the gate? Feeds localResolutionRate in /stats.
+    const confident = attempts.some((a) => a.tier === servedBy && a.confident === true);
     const trace = {
       message: redact(message),
       answer: redact(answer),
       servedBy,
+      confident,
       decision,
       attempts,
       contextIds: contexts.map((c) => c.id),

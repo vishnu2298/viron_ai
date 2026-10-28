@@ -65,6 +65,7 @@ export function summarizeStats(data) {
     tiny: by.tiny || 0,
     core: by.core || 0,
     tinyShare: data.total ? Math.round(((by.tiny || 0) / data.total) * 100) : null,
+    confidentShare: typeof data.localResolutionRate === 'number' ? Math.round(data.localResolutionRate * 100) : null,
   };
 }
 

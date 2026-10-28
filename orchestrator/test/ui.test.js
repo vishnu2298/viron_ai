@@ -52,6 +52,7 @@ test('ui: history, stats, formatting and error text', async () => {
     summarizeStats({
       total: 4,
       windowHours: 24,
+      localResolutionRate: 0.5,
       byTier: [
         { _id: 'tiny', count: 3 },
         { _id: 'core', count: 1 },
@@ -63,6 +64,7 @@ test('ui: history, stats, formatting and error text', async () => {
       tiny: 3,
       core: 1,
       tinyShare: 75,
+      confidentShare: 50,
     },
   );
   assert.equal(fmtMs(420), '420 ms');
