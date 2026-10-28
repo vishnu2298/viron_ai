@@ -48,3 +48,22 @@ test('redact: strips email, phone, card, PAN', () => {
 test('redact: shared PII fixture (parity with model/viron/redact.py)', () => {
   for (const { input, expected } of piiCases) assert.equal(redact(input), expected, input);
 });
+
+test('router: keywords match whole words only (no substring hits)', () => {
+  assert.deepEqual(router.route('What is the capital of India?', adapters).adapters, []); // 'api' in 'capital'
+  assert.equal(router.scoreComplexity('My explanation was long') < 0.15, true); // 'plan' in 'explanation'
+  assert.deepEqual(
+    router.route('Fix these bugs in my API', adapters).adapters.map((a) => a.name),
+    ['code'],
+  );
+});
+
+test('router: hasWord handles plurals, punctuation, non-Latin neighbours and regex metacharacters', () => {
+  assert.equal(router.hasWord('two bugs here', 'bug'), true);
+  assert.equal(router.hasWord('debugging', 'bug'), false);
+  assert.equal(router.hasWord('(api)?', 'api'), true);
+  assert.equal(router.hasWord('नमस्ते api कैसे', 'api'), true);
+  assert.equal(router.hasWord('नमस्तेapi', 'api'), false);
+  assert.equal(router.hasWord('see stack traces', 'stack trace'), true);
+  assert.equal(router.hasWord('a+b', 'a+b'), true);
+});
