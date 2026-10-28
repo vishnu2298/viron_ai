@@ -65,7 +65,29 @@ def build_datasets(traces, min_examples: int = 1):
     return {k: v for k, v in buckets.items() if len(v) >= min_examples}
 
 
-def main():
+def export(col, out: Path, days: int, min_examples: int, batch: int, now: datetime | None = None) -> dict[str, int]:
+    """Read escalated traces from `col` and write one JSONL per adapter bucket. Returns example counts."""
+    since = (now or datetime.now(UTC)) - timedelta(days=days)
+    cursor = col.find(
+        {"escalated": True, "createdAt": {"$gte": since}},
+        {"message": 1, "answer": 1, "decision.adapters": 1},
+        batch_size=batch,
+    )
+    datasets = build_datasets(cursor, min_examples)
+
+    out.mkdir(parents=True, exist_ok=True)
+    for name, rows in datasets.items():
+        path = out / f"{name}.jsonl"
+        with path.open("w", encoding="utf-8") as f:
+            for r in rows:
+                f.write(json.dumps(r, ensure_ascii=False) + "\n")
+        log.info(json.dumps({"adapter": name, "examples": len(rows), "path": str(path)}))
+    if not datasets:
+        log.info("no adapter bucket reached --min-examples yet; keep collecting traces")
+    return {name: len(rows) for name, rows in datasets.items()}
+
+
+def main():  # pragma: no cover - CLI wiring around export()
     from pymongo import MongoClient
 
     ap = argparse.ArgumentParser()
@@ -77,25 +99,8 @@ def main():
 
     client = MongoClient(os.environ["MONGODB_URI"])
     col = client[os.environ.get("MONGODB_DB", "viron_ai")]["traces"]
-    since = datetime.now(UTC) - timedelta(days=args.days)
-    cursor = col.find(
-        {"escalated": True, "createdAt": {"$gte": since}},
-        {"message": 1, "answer": 1, "decision.adapters": 1},
-        batch_size=args.batch,
-    )
-    datasets = build_datasets(cursor, args.min_examples)
-
-    out = Path(args.out)
-    out.mkdir(parents=True, exist_ok=True)
-    for name, rows in datasets.items():
-        path = out / f"{name}.jsonl"
-        with path.open("w", encoding="utf-8") as f:
-            for r in rows:
-                f.write(json.dumps(r, ensure_ascii=False) + "\n")
-        log.info(json.dumps({"adapter": name, "examples": len(rows), "path": str(path)}))
-    if not datasets:
-        log.info("no adapter bucket reached --min-examples yet; keep collecting traces")
+    export(col, Path(args.out), args.days, args.min_examples, args.batch)
 
 
-if __name__ == "__main__":
+if __name__ == "__main__":  # pragma: no cover
     main()

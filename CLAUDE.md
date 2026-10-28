@@ -18,8 +18,8 @@ Roadmap and task list: `docs/ROADMAP.md`. Work it top to bottom unless the user 
 - `docker-compose.yml` — llm-tiny, llm-core, embedder, mongo (atlas-local), orchestrator
 
 ## Commands
-- `cd orchestrator && npm ci && npm test`
-- `cd training && pip install pytest && pytest -q`
+- `cd orchestrator && npm ci && npm test` (`npm run test:coverage` enforces ≥80% on `services/`)
+- `cd training && pip install -r requirements-dev.txt && pytest -q` (includes coverage)
 - `cd edge && node test.mjs`
 - Lint: `npm run lint` (orchestrator, edge); `ruff check . && ruff format --check .` (training)
 - `docker compose up -d` (needs GGUF files in `./models`, not in git)
