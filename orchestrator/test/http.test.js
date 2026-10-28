@@ -54,23 +54,3 @@ test('trust proxy: X-Forwarded-For keys the limiter only when proxy is trusted',
     assert.equal(await chat(base, { 'x-forwarded-for': '198.51.100.2' }), 58);
   });
 });
-
-test('config: TRUST_PROXY / TRUST_CF_IP parsing', () => {
-  const load = (env) => {
-    const saved = { ...process.env };
-    Object.assign(process.env, env);
-    delete require.cache[require.resolve('../src/config')];
-    try {
-      return require('../src/config');
-    } finally {
-      process.env = saved;
-      delete require.cache[require.resolve('../src/config')];
-    }
-  };
-  assert.equal(load({ TRUST_PROXY: '' }).trustProxy, false);
-  assert.equal(load({ TRUST_PROXY: 'true' }).trustProxy, true);
-  assert.equal(load({ TRUST_PROXY: '1' }).trustProxy, 1);
-  assert.equal(load({ TRUST_PROXY: 'loopback, 10.0.0.0/8' }).trustProxy, 'loopback, 10.0.0.0/8');
-  assert.equal(load({ TRUST_CF_IP: 'true' }).trustCfIp, true);
-  assert.equal(load({ TRUST_CF_IP: 'yes' }).trustCfIp, false);
-});

@@ -1,5 +1,4 @@
 const { MongoClient } = require('mongodb');
-const config = require('./config');
 const logger = require('./utils/logger');
 const router = require('./services/router.service');
 const confidence = require('./services/confidence.service');
@@ -12,6 +11,7 @@ const { createTraceRepository } = require('./repositories/trace.repository');
 const { createApp } = require('./app');
 
 async function main() {
+  const config = require('./config'); // validates on load; a bad value aborts startup via the catch below
   let mongo, knowledgeRepo, traceRepo;
   if (config.mongo.uri) {
     mongo = await new MongoClient(config.mongo.uri, { maxPoolSize: 20 }).connect();
