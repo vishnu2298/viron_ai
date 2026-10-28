@@ -4,16 +4,16 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from export_traces import build_datasets, export, strip_context
+from export_traces import build_datasets, export
 
 
 def t(msg, ans, adapter=None):
     return {"message": msg, "answer": ans, "decision": {"adapters": [{"name": adapter}] if adapter else []}}
 
 
-def test_buckets_dedupes_and_strips_context():
+def test_buckets_and_dedupes():
     traces = [
-        t("Context:\n[1] doc\n\nHow do refunds work?", "Within 7 days.", "support"),
+        t("How do refunds work?", "Within 7 days.", "support"),
         t("how do refunds work?", "dup", "support"),
         t("Fix this regex", "Use a lazy quantifier.", "code"),
         t("hi", "", None),
@@ -28,8 +28,11 @@ def test_min_examples_filters_small_buckets():
     assert build_datasets([t("question one", "answer one", "code")], min_examples=2) == {}
 
 
-def test_strip_context_passthrough():
-    assert strip_context("plain question") == "plain question"
+def test_user_message_is_kept_verbatim():
+    # A real question that happens to look like the old inline-context format must not be truncated
+    msg = "Context:\nwe migrated last week\n\nWhy are refunds slow?"
+    ds = build_datasets([t(msg, "Queue backlog.", "support")])
+    assert ds["support"][0]["messages"][1]["content"] == msg
 
 
 class FakeCollection:

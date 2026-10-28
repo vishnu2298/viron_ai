@@ -21,18 +21,12 @@ logging.basicConfig(level=logging.INFO, format='{"level":"%(levelname)s","event"
 log = logging.getLogger("export")
 
 SYSTEM = "You are a concise, accurate assistant."
-CONTEXT_PREFIX = "Context:\n"
-
-
-def strip_context(message: str) -> str:
-    """Remove injected retrieval context so the adapter learns skills, not stale facts."""
-    if message.startswith(CONTEXT_PREFIX) and "\n\n" in message:
-        return message.split("\n\n", 1)[1]
-    return message
 
 
 def to_example(trace: dict) -> dict | None:
-    q = strip_context((trace.get("message") or "").strip())
+    # Traces hold the user's message verbatim: retrieved context travels in the system prompt
+    # (never the user turn), so adapters learn skills, not stale facts, with no stripping needed.
+    q = (trace.get("message") or "").strip()
     a = (trace.get("answer") or "").strip()
     if len(q) < 3 or len(a) < 3:
         return None

@@ -73,7 +73,11 @@ test('tiny tier answers confidently: no expansion, LoRA attached, PII redacted i
   assert.equal(core.calls.length, 0);
   assert.equal(esc.length, 0);
   assert.deepEqual(tiny.calls[0].lora, [{ id: 2, scale: 0.8 }]);
-  assert.match(tiny.calls[0].messages.at(-1).content, /Refunds are processed/);
+  const sent = tiny.calls[0].messages;
+  assert.equal(sent[0].role, 'system');
+  assert.match(sent[0].content, /Context:\n\[1\] Refunds are processed/);
+  assert.deepEqual(sent.at(-1), { role: 'user', content: 'Refund status for me@mail.com?' });
+  assert.equal(sent.filter((m) => m.role === 'system').length, 1);
   await new Promise((r) => setImmediate(r));
   assert.ok(!traces[0].message.includes('me@mail.com'));
   tiny.server.close();
