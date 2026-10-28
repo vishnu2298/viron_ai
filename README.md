@@ -49,6 +49,10 @@ LLAMA_CPP=~/llama.cpp BASE=<core-base-dir> NAME=core ./build_artifacts.sh
 ```
 Adapters are tied to their base weights: train per tier.
 
+## Behind a proxy
+- `TRUST_PROXY` is passed to Express `trust proxy` (`false` default, `true`, a hop count like `1`, or subnets/names like `loopback`), so `req.ip` reflects `X-Forwarded-For` from trusted hops only.
+- `TRUST_CF_IP=true` keys the rate limiter on `CF-Connecting-IP`. Enable it only when the origin accepts traffic solely from Cloudflare (Tunnel or IP allow-list); otherwise clients can spoof the header.
+
 ## Edge
 ```bash
 cd edge && wrangler kv namespace create CACHE   # put id in wrangler.toml
