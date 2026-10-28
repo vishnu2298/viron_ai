@@ -4,7 +4,7 @@
  *  2. Exact-match answer cache in KV -> zero model compute for repeated questions.
  *  3. Forward to the orchestrator (tiny -> core ladder).
  *  4. If the origin is down, return 503; cached answers are still served. No external model is ever called.
- * Only stateless questions (no history) are cached, and only confident local or teacher answers.
+ * Only stateless questions (no history) are cached, and only answers the local confidence gate passed.
  */
 const json = (body, status = 200, extra = {}) =>
   new Response(JSON.stringify(body), { status, headers: { 'content-type': 'application/json', ...extra } });
@@ -27,12 +27,11 @@ export async function timingSafeEqual(a, b) {
 
 const LOCAL_TIERS = new Set(['tiny', 'core']);
 
-// Cache only answers worth replaying: a teacher (escalation) answer, or a local answer the confidence gate passed.
-// A local answer served after a failed escalation is unsure, so it is not cached; edge-* answers never are.
+// Cache only answers worth replaying: a tiny/core answer whose attempt passed the confidence gate.
+// Unsure answers (the ladder's best-effort fallback) and anything not from a local tier are never cached.
 export function shouldCache(status, out) {
   if (status < 200 || status >= 300 || out?.success !== true) return false;
   const meta = out.meta || {};
-  if (meta.servedBy === 'escalation') return meta.escalated === true;
   if (!LOCAL_TIERS.has(meta.servedBy) || !Array.isArray(meta.attempts)) return false;
   const served = meta.attempts.findLast((a) => a.tier === meta.servedBy && !a.error);
   return served?.confident === true;

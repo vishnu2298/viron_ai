@@ -44,18 +44,15 @@ assert.equal(await authCall('Bearer secret-key-longer'), 401);
 assert.equal(await authCall('secret-key'), 401);
 assert.equal(await authCall('Bearer secret-key'), 400); // authorized; then fails validation on the empty body
 
-// Cache policy: only confident local answers or escalation answers
+// Cache policy: only confident local answers
 const ok = (meta) => ({ success: true, data: { answer: 'a' }, meta });
 const att = (tier, confident) => ({ tier, confident });
 assert.equal(shouldCache(200, ok({ servedBy: 'tiny', attempts: [att('tiny', true)] })), true);
 assert.equal(shouldCache(200, ok({ servedBy: 'core', attempts: [att('tiny', false), att('core', true)] })), true);
-assert.equal(shouldCache(200, ok({ servedBy: 'escalation', escalated: true, attempts: [att('tiny', false)] })), true);
+assert.equal(shouldCache(200, ok({ servedBy: 'escalation', escalated: true, attempts: [att('tiny', false)] })), false);
 assert.equal(shouldCache(200, ok({ servedBy: 'tiny', attempts: [att('tiny', false)] })), false);
-// escalation failed after unsure local tiers: origin still answers from core, but it is not confident
-assert.equal(
-  shouldCache(200, ok({ servedBy: 'core', attempts: [att('tiny', false), att('core', false), { tier: 'escalation', error: 'x' }] })),
-  false,
-);
+// both local tiers unsure: origin returns the core answer as best effort, but it is not confident
+assert.equal(shouldCache(200, ok({ servedBy: 'core', attempts: [att('tiny', false), att('core', false)] })), false);
 assert.equal(shouldCache(200, ok({ servedBy: 'core', attempts: [{ tier: 'core', error: 'down' }] })), false);
 assert.equal(shouldCache(200, ok({ servedBy: 'tiny' })), false);
 assert.equal(shouldCache(200, ok({ servedBy: 'edge-fallback', attempts: [] })), false);
