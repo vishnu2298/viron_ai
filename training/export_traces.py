@@ -1,8 +1,8 @@
 """
 Distillation data export: MongoDB traces -> per-adapter JSONL chat datasets.
 
-Escalated traces are teacher-labelled (the large model answered what the small one couldn't),
-so they are exactly the gap a new LoRA adapter should close.
+Retargeted in roadmap M5: datasets come from redacted runtime traces of Viron itself (never from other AI
+products' outputs). The current `escalated: true` filter predates standalone mode and selects nothing new.
 
 Usage:
   python export_traces.py --out data/ --days 30 --min-examples 200

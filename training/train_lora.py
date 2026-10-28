@@ -1,32 +1,38 @@
 """
-Train one LoRA skill adapter on top of a small base model (QLoRA, 4-bit).
+Train one LoRA skill adapter on a **Viron checkpoint** (QLoRA, 4-bit). Wired up in roadmap M5.
 Runs on a single 16-24 GB GPU. Output: a ~10-100 MB adapter, not a new model.
 
+Standalone: `--base` must be a local directory holding a Viron checkpoint exported in Hugging Face layout
+(config + weights + tokenizer.json from Viron's own BPE). Hub model IDs are rejected so no pretrained weights
+are ever downloaded. The export itself lands in M5; until then this script has no valid input.
+
 IMPORTANT: an adapter is tied to its base weights. Train separately for each tier
-(tiny base and core base) if you want the same skill on both.
+(Viron tiny and Viron core) if you want the same skill on both.
 
 Usage:
-  python train_lora.py --base <hf-model-id> --data data/support.jsonl --out adapters/support-core
+  python train_lora.py --base checkpoints/viron-core-hf --data data/support.jsonl --out adapters/support-core
 """
 
 import argparse
+from pathlib import Path
 
-import torch
-from datasets import load_dataset
-from peft import LoraConfig, get_peft_model, prepare_model_for_kbit_training
-from transformers import (
-    AutoModelForCausalLM,
-    AutoTokenizer,
-    BitsAndBytesConfig,
-    DataCollatorForLanguageModeling,
-    Trainer,
-    TrainingArguments,
-)
+
+def require_local_base(base: str) -> Path:
+    """Accept only an existing local checkpoint dir; anything else (e.g. a Hub ID) is an error."""
+    path = Path(base)
+    if not path.is_dir():
+        raise SystemExit(
+            f"--base must be a local Viron checkpoint directory (got {base!r}); "
+            "pretrained Hub models are not allowed (see CLAUDE.md, standalone rule 2)"
+        )
+    if not (path / "config.json").is_file():
+        raise SystemExit(f"--base {base!r} has no config.json; export the Viron checkpoint in HF layout first (M5)")
+    return path
 
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--base", required=True)
+    ap.add_argument("--base", required=True, help="local Viron checkpoint dir (HF layout); Hub IDs are rejected")
     ap.add_argument("--data", required=True)
     ap.add_argument("--out", required=True)
     ap.add_argument("--rank", type=int, default=16)
@@ -34,12 +40,28 @@ def main():
     ap.add_argument("--lr", type=float, default=2e-4)
     ap.add_argument("--max-len", type=int, default=1024)
     args = ap.parse_args()
+    base = require_local_base(args.base)
 
-    tok = AutoTokenizer.from_pretrained(args.base)
+    # Heavy imports here so the guard above is testable without the GPU training stack
+    import torch
+    from datasets import load_dataset
+    from peft import LoraConfig, get_peft_model, prepare_model_for_kbit_training
+    from transformers import (
+        AutoModelForCausalLM,
+        AutoTokenizer,
+        BitsAndBytesConfig,
+        DataCollatorForLanguageModeling,
+        Trainer,
+        TrainingArguments,
+    )
+
+    # local_files_only: belt and braces, never reach the Hub even if a path looks like a repo ID
+    tok = AutoTokenizer.from_pretrained(base, local_files_only=True)
     tok.pad_token = tok.pad_token or tok.eos_token
 
     model = AutoModelForCausalLM.from_pretrained(
-        args.base,
+        base,
+        local_files_only=True,
         quantization_config=BitsAndBytesConfig(
             load_in_4bit=True,
             bnb_4bit_quant_type="nf4",

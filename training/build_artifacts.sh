@@ -1,9 +1,11 @@
 #!/usr/bin/env bash
-# Convert base model + adapters to GGUF for llama.cpp, quantized to 4-bit.
+# Convert a Viron checkpoint (exported in HF layout, roadmap M5) + its adapters to GGUF for llama.cpp, 4-bit.
+# Standalone: BASE must be a local Viron export, never a pretrained model.
 # Requires a llama.cpp checkout: git clone https://github.com/ggml-org/llama.cpp
 set -euo pipefail
 : "${LLAMA_CPP:?set LLAMA_CPP to your llama.cpp checkout}"
-: "${BASE:?set BASE to the local HF base model dir}"
+: "${BASE:?set BASE to the local Viron checkpoint dir (HF layout)}"
+[ -f "$BASE/config.json" ] || { echo "BASE=$BASE is not a local checkpoint dir with config.json" >&2; exit 1; }
 NAME="${NAME:-core}"
 OUT="${OUT:-../models}"
 mkdir -p "$OUT"

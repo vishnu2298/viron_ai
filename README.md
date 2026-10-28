@@ -31,8 +31,8 @@ Every escalation is stored as a teacher-labelled example. `training/export_trace
 ## Run
 ```bash
 cp .env.example .env               # set keys
-# 1. pick a small open-weight model family with two sizes; check its license
-# 2. build GGUF artifacts into ./models  (training/build_artifacts.sh)
+# 1. train Viron checkpoints from scratch (model/README.md); no pretrained weights are used
+# 2. export to GGUF into ./models (roadmap M5)
 docker compose up -d
 curl -s localhost:8080/api/v1/chat -H 'authorization: Bearer change-me' \
   -H 'content-type: application/json' -d '{"message":"How do refunds work?"}'
@@ -50,10 +50,11 @@ The per-request `lora` field needs a recent `llama-server`; the image is pinned 
 ```bash
 cd training && pip install -r requirements.txt
 MONGODB_URI=... python export_traces.py --out data --days 30 --min-examples 200
-python train_lora.py --base <core-base-model> --data data/support.jsonl --out adapters/support-core
-LLAMA_CPP=~/llama.cpp BASE=<core-base-dir> NAME=core ./build_artifacts.sh
+python train_lora.py --base <local-viron-core-checkpoint> --data data/support.jsonl --out adapters/support-core
+LLAMA_CPP=~/llama.cpp BASE=<local-viron-core-checkpoint> NAME=core ./build_artifacts.sh
 ```
-Adapters are tied to their base weights: train per tier.
+Adapters are tied to their base weights: train per Viron tier. `--base`/`BASE` must be a local Viron checkpoint
+exported in HF layout (roadmap M5); Hub model IDs are rejected. Until M5 lands, this loop has no valid input.
 
 ## Behind a proxy
 - `TRUST_PROXY` is passed to Express `trust proxy` (`false` default, `true`, a hop count like `1`, or subnets/names like `loopback`), so `req.ip` reflects `X-Forwarded-For` from trusted hops only.
