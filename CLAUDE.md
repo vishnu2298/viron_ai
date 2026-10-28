@@ -21,6 +21,7 @@ Roadmap and task list: `docs/ROADMAP.md`. Work it top to bottom unless the user 
 - `cd orchestrator && npm ci && npm test`
 - `cd training && pip install pytest && pytest -q`
 - `cd edge && node test.mjs`
+- Lint: `npm run lint` (orchestrator, edge); `ruff check . && ruff format --check .` (training)
 - `docker compose up -d` (needs GGUF files in `./models`, not in git)
 CI (`.github/workflows/ci.yml`) runs all three suites; keep it green.
 

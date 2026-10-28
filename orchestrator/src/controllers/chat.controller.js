@@ -4,7 +4,9 @@ function createChatController({ elastic, traceRepo }) {
       try {
         const { answer, meta } = await elastic.chat(req.body);
         res.json({ success: true, message: 'ok', data: { answer }, meta });
-      } catch (err) { next(err); }
+      } catch (err) {
+        next(err);
+      }
     },
     async stats(req, res, next) {
       try {
@@ -17,7 +19,9 @@ function createChatController({ elastic, traceRepo }) {
           message: 'ok',
           data: { windowHours: hours, total, localResolutionRate: total ? Number((1 - escalated / total).toFixed(3)) : null, byTier: rows },
         });
-      } catch (err) { next(err); }
+      } catch (err) {
+        next(err);
+      }
     },
   };
 }

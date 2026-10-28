@@ -11,9 +11,7 @@ const SYSTEM_PROMPT =
   'If the context does not contain the answer and you are unsure, say so plainly.';
 
 function buildMessages(message, history, contexts) {
-  const ctx = contexts.length
-    ? `Context:\n${contexts.map((c, i) => `[${i + 1}] ${c.text}`).join('\n')}\n\n`
-    : '';
+  const ctx = contexts.length ? `Context:\n${contexts.map((c, i) => `[${i + 1}] ${c.text}`).join('\n')}\n\n` : '';
   return [...history, { role: 'user', content: `${ctx}${message}` }];
 }
 

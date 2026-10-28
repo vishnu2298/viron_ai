@@ -62,6 +62,13 @@ cd training && pytest -q                 # dataset export
 cd edge && node test.mjs                 # cache + fallback
 ```
 
+## Lint
+```bash
+cd orchestrator && npm run lint          # ESLint + Prettier check (npm run format to fix)
+cd edge && npm ci && npm run lint
+cd training && pip install -r requirements-dev.txt && ruff check . && ruff format --check .
+```
+
 ## Known limits
 - The router is heuristic. Replace it with a classifier trained on traces after ~5k requests.
 - Logprob confidence is a proxy. Add a verifier step for high-stakes domains.

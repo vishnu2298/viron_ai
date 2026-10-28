@@ -5,6 +5,7 @@
  *  - forceEscalate: skip local tiers when the task is clearly beyond them
  * Deterministic + cheap (<1ms). Replace with a trained classifier once traces exist.
  */
+// prettier-ignore
 const REASONING_HINTS = [
   'why', 'explain', 'design', 'architecture', 'compare', 'analyze', 'analyse', 'prove',
   'step by step', 'trade-off', 'tradeoff', 'optimize', 'debug', 'plan', 'strategy',

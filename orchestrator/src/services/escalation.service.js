@@ -16,7 +16,10 @@ function createEscalationService({ apiKey, model, maxTokens, timeoutMs, http = p
         headers: { 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' },
       },
     );
-    const text = (res.content || []).filter((b) => b.type === 'text').map((b) => b.text).join('\n');
+    const text = (res.content || [])
+      .filter((b) => b.type === 'text')
+      .map((b) => b.text)
+      .join('\n');
     return { text, usage: res.usage || {} };
   }
   return { generate };
