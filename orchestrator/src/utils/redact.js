@@ -2,7 +2,8 @@
 const digits = (s) => s.replace(/\D/g, '').length;
 
 const RULES = [
-  [/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi, '[EMAIL]'],
+  // Unicode-aware so non-Latin names (e.g. Devanagari) and IDN domains are caught; \p{M} keeps vowel signs attached
+  [/[\p{L}\p{M}\p{N}._%+-]+@[\p{L}\p{M}\p{N}.-]+\.[\p{L}\p{M}]{2,}/gu, '[EMAIL]'],
   [/\b(?:sk|pk|api|key)[-_][A-Za-z0-9_-]{16,}\b/g, '[SECRET]'],
   [/\b\d{3}-\d{2}-\d{4}\b/g, '[SSN]'],
   [/\b[A-Z]{5}\d{4}[A-Z]\b/g, '[PAN]'],

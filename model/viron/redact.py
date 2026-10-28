@@ -4,6 +4,7 @@ Both implementations are checked against orchestrator/test/fixtures/pii-cases.js
 """
 
 import re
+import unicodedata
 
 # JS semantics: \d and \b are ASCII-only, but JS \s is Unicode whitespace. re.ASCII matches the first two;
 # JS's \s set is spelled out so NBSP-separated numbers are treated the same in both runtimes.
@@ -11,12 +12,32 @@ _WS = "\t\n\v\f\r    -     　﻿"
 _A = re.ASCII
 
 
+def _mark_class() -> str:
+    """Regex class body for every combining mark (JS \\p{M}); Python's re has no \\p{...}, so build it once."""
+    ranges, start, prev = [], None, None
+    # Marks only occur in planes 0-1 and the variation-selector supplement; scanning just those keeps import fast
+    for cp in [*range(0x20000), *range(0xE0000, 0xE1000)]:
+        if unicodedata.category(chr(cp))[0] == "M":
+            if start is None:
+                start = cp
+            prev = cp
+        elif start is not None:
+            ranges.append((start, prev))
+            start = None
+    return "".join(f"\\U{a:08x}-\\U{b:08x}" if a != b else f"\\U{a:08x}" for a, b in ranges)
+
+
+_M = _mark_class()
+# [^\W_] is Unicode letters + numbers (JS \p{L}\p{N}); [^\W\d_] is letters only
+_EMAIL = re.compile(rf"(?:[^\W_]|[{_M}._%+-])+@(?:[^\W_]|[{_M}.-])+\.(?:[^\W\d_]|[{_M}]){{2,}}")
+
+
 def _digits(s: str) -> int:
     return len(re.sub(r"\D", "", s, flags=_A))
 
 
 _RULES: list[tuple[re.Pattern, object]] = [
-    (re.compile(r"[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}", _A | re.IGNORECASE), "[EMAIL]"),
+    (_EMAIL, "[EMAIL]"),
     (re.compile(r"\b(?:sk|pk|api|key)[-_][A-Za-z0-9_-]{16,}\b", _A), "[SECRET]"),
     (re.compile(r"\b\d{3}-\d{2}-\d{4}\b", _A), "[SSN]"),
     (re.compile(r"\b[A-Z]{5}\d{4}[A-Z]\b", _A), "[PAN]"),
