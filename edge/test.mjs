@@ -1,6 +1,6 @@
 // Minimal local test of the worker with mocked bindings
 import assert from 'node:assert/strict';
-import worker, { cacheKey } from './src/index.js';
+import worker, { cacheKey, timingSafeEqual } from './src/index.js';
 
 const kv = new Map();
 const env = {
@@ -20,4 +20,20 @@ kv.set(await cacheKey('cached q'), JSON.stringify({ data: { answer: 'from cache'
 r = await call({ message: 'Cached Q' });
 assert.equal((await r.json()).data.answer, 'from cache');
 assert.equal((await call({})).status, 400);
+
+// Auth: constant-time compare of the full Authorization header
+assert.equal(await timingSafeEqual('Bearer k1', 'Bearer k1'), true);
+assert.equal(await timingSafeEqual('Bearer k1', 'Bearer k2'), false);
+assert.equal(await timingSafeEqual('', 'Bearer k1'), false);
+const authed = { ...env, EDGE_API_KEY: 'secret-key' };
+const authCall = (authorization) => {
+  const headers = authorization === undefined ? {} : { authorization };
+  return worker.fetch(new Request('http://x/api/v1/chat', { method: 'POST', headers, body: '{}' }), authed, ctx).then((res) => res.status);
+};
+assert.equal(await authCall(), 401);
+assert.equal(await authCall('Bearer secret-kez'), 401); // same length, last char differs
+assert.equal(await authCall('Bearer secret-key-longer'), 401);
+assert.equal(await authCall('secret-key'), 401);
+assert.equal(await authCall('Bearer secret-key'), 400); // authorized; then fails validation on the empty body
+
 console.log('edge tests passed');
