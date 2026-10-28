@@ -12,7 +12,7 @@ North-star: best validation loss / eval score per dollar of compute, then local 
 - [x] Lint/format: ruff (Python), ESLint + Prettier (JS); add to CI.
 
 ## M1 — Data (needs user decision)
-- [ ] `docs/DATA.md`: compare 3–5 openly licensed pretraining corpora (license, size, languages incl. Hindi/Indic, quality); stop for user choice.
+- [x] `docs/DATA.md`: compare 3–5 openly licensed pretraining corpora (license, size, languages incl. Hindi/Indic, quality); stop for user choice.
 - [ ] `model/scripts/download_data.py`: stream chosen sources to `data/raw/` with a token budget flag.
 - [ ] Cleaning: exact-dup removal (content hash), length/repetition/language filters, PII redaction (port `orchestrator/src/utils/redact.js` rules to Python with tests).
 - [ ] Multi-shard token files + data mixture config (YAML: source → weight).
