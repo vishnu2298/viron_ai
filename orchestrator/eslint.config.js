@@ -14,4 +14,9 @@ module.exports = [
       'prefer-const': 'error',
     },
   },
+  {
+    // Browser ES modules for the /ui console
+    files: ['public/**/*.mjs'],
+    languageOptions: { ecmaVersion: 2023, sourceType: 'module', globals: globals.browser },
+  },
 ];
