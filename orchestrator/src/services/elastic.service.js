@@ -10,18 +10,24 @@ const SYSTEM_PROMPT =
   'You are a concise, accurate assistant. Use the provided context when relevant. ' +
   'If the context does not contain the answer and you are unsure, say so plainly.';
 
-function buildMessages(message, history, contexts) {
-  const ctx = contexts.length ? `Context:\n${contexts.map((c, i) => `[${i + 1}] ${c.text}`).join('\n')}\n\n` : '';
-  return [...history, { role: 'user', content: `${ctx}${message}` }];
+// Retrieved context rides in the (single, leading) system message so user turns and history stay clean.
+// One system message, not two: several chat templates reject a system message that is not first/only.
+function buildSystem(contexts) {
+  if (!contexts.length) return SYSTEM_PROMPT;
+  return `${SYSTEM_PROMPT}\n\nContext:\n${contexts.map((c, i) => `[${i + 1}] ${c.text}`).join('\n')}`;
+}
+
+function buildMessages(message, history) {
+  return [...history, { role: 'user', content: message }];
 }
 
 function createElasticService({ router, retrieval, inference, escalation, confidence, traceRepo, config }) {
-  async function tryLocal(tier, messages, adapters, attempts) {
+  async function tryLocal(tier, system, messages, adapters, attempts) {
     const started = Date.now();
     const out = await inference.generate({
       tier,
       adapters,
-      messages: [{ role: 'system', content: SYSTEM_PROMPT }, ...messages],
+      messages: [{ role: 'system', content: system }, ...messages],
     });
     const conf = confidence.assess(out.logprobs, config.confidence);
     attempts.push({ tier, adapters: adapters.map((a) => a.name), ms: Date.now() - started, ...conf });
@@ -39,7 +45,8 @@ function createElasticService({ router, retrieval, inference, escalation, confid
     } catch (err) {
       logger.warn({ event: 'retrieval.failed', error: err.message }); // degrade, don't fail
     }
-    const messages = buildMessages(message, history, contexts);
+    const system = buildSystem(contexts);
+    const messages = buildMessages(message, history);
     const attempts = [];
     let answer = null;
     let servedBy = null;
@@ -48,7 +55,7 @@ function createElasticService({ router, retrieval, inference, escalation, confid
       const ladder = decision.tier === 'tiny' ? ['tiny', 'core'] : ['core'];
       for (const tier of ladder) {
         try {
-          const out = await tryLocal(tier, messages, decision.adapters, attempts);
+          const out = await tryLocal(tier, system, messages, decision.adapters, attempts);
           answer = out.text;
           servedBy = tier;
           if (out.conf.confident) break;
@@ -65,7 +72,7 @@ function createElasticService({ router, retrieval, inference, escalation, confid
 
     if (needEscalation && config.escalation.enabled && options.allowEscalation !== false) {
       try {
-        const out = await escalation.generate({ system: SYSTEM_PROMPT, messages });
+        const out = await escalation.generate({ system, messages });
         answer = out.text;
         servedBy = 'escalation';
         escalated = true;
@@ -113,4 +120,4 @@ function createElasticService({ router, retrieval, inference, escalation, confid
   return { chat };
 }
 
-module.exports = { createElasticService, buildMessages, SYSTEM_PROMPT };
+module.exports = { createElasticService, buildMessages, buildSystem, SYSTEM_PROMPT };

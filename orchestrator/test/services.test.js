@@ -5,7 +5,7 @@ const confidence = require('../src/services/confidence.service');
 const { createRetrievalService } = require('../src/services/retrieval.service');
 const { createEscalationService } = require('../src/services/escalation.service');
 const { createInferenceService } = require('../src/services/inference.service');
-const { createElasticService } = require('../src/services/elastic.service');
+const { createElasticService, buildSystem, SYSTEM_PROMPT } = require('../src/services/elastic.service');
 
 const CONF = { minMeanLogprob: -0.9, lowTokenLogprob: -2.5, maxLowTokenRatio: 0.15 };
 const sure = Array.from({ length: 8 }, () => ({ logprob: -0.1 }));
@@ -204,4 +204,25 @@ test('elastic: trace save failure does not fail the request', async () => {
   const out = await elastic.chat({ message: 'hi' });
   assert.equal(out.answer, 'tiny answer');
   await new Promise((r) => setImmediate(r));
+});
+
+test('elastic: context goes to the system prompt; history and user turn stay verbatim', async () => {
+  const history = [
+    { role: 'user', content: 'earlier q' },
+    { role: 'assistant', content: 'earlier a' },
+  ];
+  const { elastic, calls } = elasticWith({
+    retrieve: async () => [{ id: 'k1', text: 'Fact one.' }],
+    local: { tiny: unsure, core: unsure },
+  });
+  await elastic.chat({ message: 'new q', history });
+  const sent = calls.local[0].messages;
+  assert.deepEqual(sent.slice(1), [...history, { role: 'user', content: 'new q' }]);
+  assert.equal(sent[0].content, `${SYSTEM_PROMPT}\n\nContext:\n[1] Fact one.`);
+  assert.equal(calls.escalation[0].system, sent[0].content);
+  assert.deepEqual(calls.escalation[0].messages, sent.slice(1));
+});
+
+test('buildSystem: no context -> bare system prompt', () => {
+  assert.equal(buildSystem([]), SYSTEM_PROMPT);
 });
