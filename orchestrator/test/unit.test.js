@@ -4,6 +4,7 @@ const router = require('../src/services/router.service');
 const confidence = require('../src/services/confidence.service');
 const { redact } = require('../src/utils/redact');
 const adapters = require('../src/config/adapters.json');
+const piiCases = require('./fixtures/pii-cases.json');
 
 const CONF = { minMeanLogprob: -0.9, lowTokenLogprob: -2.5, maxLowTokenRatio: 0.15 };
 
@@ -41,4 +42,9 @@ test('redact: strips email, phone, card, PAN', () => {
   assert.ok(!out.includes('98765'));
   assert.ok(!out.includes('4111'));
   assert.ok(!out.includes('ABCDE1234F'));
+});
+
+// Shared with model/tests: the Python port must produce identical output for every case
+test('redact: shared PII fixture (parity with model/viron/redact.py)', () => {
+  for (const { input, expected } of piiCases) assert.equal(redact(input), expected, input);
 });
