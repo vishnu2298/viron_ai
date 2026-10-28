@@ -1,47 +1,49 @@
 # Viron AI — guide for Claude Code
 
-Elastic AI runtime: serve each request with the least compute that answers it well.
-Ladder: edge cache → tiny model → core model (+LoRA adapters, +retrieved knowledge) → hosted large model (escalation).
-Escalated answers are traced and distilled into new LoRA adapters, so the local resolution rate rises over time.
-Roadmap and task list: `docs/ROADMAP.md`. Work it top to bottom unless the user says otherwise.
+**Mission:** build Viron, a standalone language model trained from scratch, plus an elastic runtime that serves it
+with the least compute per request. It improves in small, measured steps: every session leaves a better model,
+better data, or better tooling, and a log entry proving it.
+
+Task list: `docs/ROADMAP.md` (work top to bottom). Experiment log: `docs/EXPERIMENTS.md`.
+
+## Non-negotiable: standalone
+1. No external AI APIs anywhere in the product path (no OpenAI/Anthropic/Gemini/Workers AI/etc. calls).
+2. No pretrained weights or pretrained tokenizers. Viron starts from random init and its own BPE.
+3. No training on outputs of other AI products (distillation from them), and no data without a license that permits training. Record every dataset's source and license in `docs/DATA.md`.
+Libraries (PyTorch, numpy, `tokenizers` as a BPE algorithm, llama.cpp as an inference engine) are fine.
+Existing code that violates this (`orchestrator/src/services/escalation.service.js`, Workers AI fallback in `edge/`, `training/train_lora.py` on HF bases) is removed or rewired in roadmap M0.
 
 ## Layout
-- `orchestrator/` — Node 22, Express, CommonJS. Controller → Service → Repository.
-  - `services/router.service.js` picks tier + adapters (heuristic for now)
-  - `services/confidence.service.js` gates on token logprobs
-  - `services/elastic.service.js` is the pipeline (route → retrieve → local ladder → escalate → trace)
-  - `services/inference.service.js` talks to llama.cpp `llama-server` (OpenAI-compatible, per-request `lora`)
-  - `repositories/` MongoDB: `knowledge` (vector/text search), `traces` (learning signal, 90-day TTL)
-  - `utils/redact.js` PII redaction, applied before anything is persisted
-- `training/` — Python 3.12. `export_traces.py` (traces → per-adapter JSONL), `train_lora.py` (QLoRA), `build_artifacts.sh` (GGUF + Q4_K_M)
-- `edge/` — Cloudflare Worker: auth, KV exact-match cache, Workers AI fallback
-- `docker-compose.yml` — llm-tiny, llm-core, embedder, mongo (atlas-local), orchestrator
+- `model/` — **the model.** PyTorch, Python 3.12.
+  - `viron/config.py` presets nano→1b · `viron/model.py` transformer (RMSNorm, RoPE, GQA, SwiGLU, KV cache)
+  - `viron/tokenizer.py` own BPE + byte fallback; chat tokens `<|system|> <|user|> <|assistant|> <|end|>` reserved
+  - `viron/data.py` memmap token shards · `scripts/` tokenizer + data prep · `train.py` (DDP, resume) · `sample.py`
+- `orchestrator/` — Node 22 Express runtime: route → retrieve (MongoDB) → tiny → core. Controller → Service → Repository.
+- `training/` — trace export (keep) and LoRA tooling (to be retargeted at Viron checkpoints).
+- `edge/` — Cloudflare Worker: auth + KV cache.
 
 ## Commands
+- `cd model && pip install -r requirements.txt && pytest -q` (CPU torch is enough for tests)
 - `cd orchestrator && npm ci && npm test` (`npm run test:coverage` enforces ≥80% on `services/`)
-- `cd training && pip install -r requirements-dev.txt && pytest -q` (includes coverage)
-- `cd edge && node test.mjs`
+- `cd training && pip install -r requirements-dev.txt && pytest -q` (includes coverage) · `cd edge && npm ci && node test.mjs`
 - Lint: `npm run lint` (orchestrator, edge); `ruff check . && ruff format --check .` (training)
-- `docker compose up -d` (needs GGUF files in `./models`, not in git)
-CI (`.github/workflows/ci.yml`) runs all three suites; keep it green.
+CI runs all four suites; keep it green.
 
 ## Hard rules
-1. **Public repo.** Never commit secrets, `.env`, model weights, training data, traces, real user data, PII, or any employer/company-internal code, names, schemas, or data. Examples and fixtures must be synthetic and generic.
-2. Everything persisted or exported for training passes through `redact()` first. New PII formats need a test in `test/unit.test.js`.
-3. Dependencies are injected via factory functions (`createXService({ deps })`). Keep services testable without network; tests use local fake servers, never real APIs.
-4. API response shape: `{ success, message, data, meta }` / errors `{ success:false, message, code }`. Version routes under `/api/v1`; do not break v1.
-5. A LoRA adapter only works on the base model it was trained on. Never wire an adapter to a tier with a different base.
-6. Degrade, don't fail: retrieval or trace failures must not fail a request; a down tier falls through to the next.
-7. Ask the user before: adding a dependency, changing the public API or env var names, choosing a base model or license, deleting files, or anything that costs money (cloud resources, paid API calls).
+1. **Public repo.** Never commit secrets, `.env`, checkpoints (`*.pt`), token shards (`*.bin`), raw datasets, real user data, PII, or any employer/company-internal code, names, or data. Fixtures are synthetic.
+2. Model changes need tests: shapes, causality, KV-cache == full recompute, overfit-one-batch must stay green.
+3. Every training run gets an entry in `docs/EXPERIMENTS.md`: date, git SHA, preset, data + token count, hyperparams, steps, final train/val loss, tokens/sec, hardware, cost, conclusion, next step. No entry = run didn't happen.
+4. Change one variable per experiment; compare against the previous best on the same validation set.
+5. Ask the user before: choosing datasets or licenses, spending money (GPU rental, cloud), runs longer than ~1 hour, adding dependencies, changing public API/env names, deleting files.
+6. Degrade, don't fail (runtime): a failing tier falls through; retrieval/trace failures never fail a request.
+7. PII: anything persisted or used as training data passes through redaction first.
 
 ## Workflow
-- One roadmap task per branch: `feat/<short-name>` or `fix/<short-name>`. Conventional commits.
-- Before each commit: run the affected test suites; add tests for new behavior; update README/ROADMAP if behavior or commands change.
-- Open a PR per task with: what changed, why, how it was tested, follow-ups. Do not push to `main` directly.
-- Tick the task in `docs/ROADMAP.md` in the same PR.
-- If a task is blocked on a decision, write the options with trade-offs in the PR/issue and stop; don't guess.
+- One roadmap task per branch (`feat/…`, `fix/…`, `exp/…` for experiments), conventional commits, PR per task with what/why/how-tested. Never push to `main`.
+- Tick the task in `docs/ROADMAP.md` in the same PR. Blocked on a decision → write options with trade-offs and stop.
+- Start of each session: read `docs/EXPERIMENTS.md` tail and the next unchecked roadmap task; state the plan before editing.
 
 ## Style
-- JS: async/await, no classes unless state demands it, structured winston logs (`{ event, ... }`), Joi validation on every input.
-- Python: type hints, pure functions for logic (testable), I/O at the edges, batch DB reads.
-- Keep files small and single-purpose. Comments explain *why*, not *what*.
+- Python: type hints, pure functions for logic, I/O at the edges, `json` one-line logs (`{"event": ...}`).
+- JS: async/await, factory-injected deps, Joi validation, winston structured logs.
+- Small single-purpose files. Comments explain *why*.

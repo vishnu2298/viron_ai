@@ -13,3 +13,8 @@ __pycache__/
 .pytest_cache/
 coverage/
 .coverage
+model/data/
+model/artifacts/
+model/checkpoints/
+*.pt
+*.bin

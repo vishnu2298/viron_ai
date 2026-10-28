@@ -48,7 +48,7 @@ function buildConfig(env) {
     retrieval: { topK: num(env.RETRIEVAL_TOP_K, 4), minScore: num(env.RETRIEVAL_MIN_SCORE, 0.55) },
 
     escalation: {
-      enabled: env.ESCALATION_ENABLED !== 'false',
+      enabled: env.ESCALATION_ENABLED === 'true', // off by default: Viron runs standalone
       apiKey: env.ANTHROPIC_API_KEY || '',
       model: env.ESCALATION_MODEL || 'claude-sonnet-5-5',
       maxTokens: num(env.ESCALATION_MAX_TOKENS, 1024),

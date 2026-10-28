@@ -1,48 +1,48 @@
-# Viron AI roadmap
+# Viron roadmap
 
-Status: v0.1 scaffold — all suites pass against mock model servers. No real model wired yet.
-North-star metric: `localResolutionRate` (`GET /api/v1/stats`) at equal or better answer quality.
+Status: model code (from scratch) + runtime scaffold, all suites green on CPU. No trained checkpoint yet.
+North-star: best validation loss / eval score per dollar of compute, then local resolution rate in the runtime.
 
-## Phase 0 — Hardening the scaffold
-- [x] Add ESLint + Prettier (orchestrator, edge) and ruff (training); add lint jobs to CI.
-- [x] Add coverage (`node --test --experimental-test-coverage`, `pytest --cov`); target ≥80% on `services/`.
-- [x] `app.set('trust proxy', …)` and key the rate limiter on `CF-Connecting-IP` when behind Cloudflare.
-- [x] Edge: use a constant-time compare for `EDGE_API_KEY`.
-- [x] Edge: cache only answers that were confident locally or came from escalation (check `meta.attempts`); never cache `edge-fallback`.
-- [x] Orchestrator: send retrieved context as a separate system/context message, not prefixed into the user turn, so history stays clean. Update `export_traces.py` accordingly.
-- [x] Config validation at startup (Joi schema over `config/index.js`); fail fast on bad values.
-- [x] Graceful shutdown: drain in-flight requests before closing Mongo.
-- [x] Pin `llama.cpp` server image to a tag/digest instead of `:server`.
+## M0 — Go standalone (cleanup)
+- [ ] Remove `escalation.service.js`, its config/env/tests; the ladder ends at the `core` tier. Return 503 `NO_TIER_AVAILABLE` if all tiers fail.
+- [ ] Edge: remove Workers AI fallback and the `[ai]` binding; on origin failure return 503 (cache hits still served).
+- [ ] Edge: constant-time key compare; cache only confident local answers (check `meta.attempts`).
+- [ ] Mark `training/train_lora.py` as targeting Viron checkpoints (M5); remove HF-pretrained-base assumptions from docs.
+- [ ] Update root README diagram and `.env.example` to the standalone architecture.
+- [ ] Lint/format: ruff (Python), ESLint + Prettier (JS); add to CI.
 
-## Phase 1 — Real models (needs user decision: base model family + license)
-- [ ] Write `docs/MODELS.md` comparing 2–3 small open-weight families that ship ≥2 sizes; stop for user choice.
-- [ ] `scripts/fetch_models.sh`: download chosen tiny/core/embedding models, convert + quantize via `build_artifacts.sh`.
-- [ ] Verify on the pinned `llama-server`: per-request `lora`, `logprobs` in chat completions, `/v1/embeddings`. Record findings in `docs/MODELS.md`.
-- [ ] `scripts/smoke.sh`: bring up compose, hit `/api/v1/chat` with 5 canned prompts, assert each tier is reachable.
-- [ ] Calibrate confidence thresholds on a small labelled set; document chosen values.
+## M1 — Data (needs user decision)
+- [ ] `docs/DATA.md`: compare 3–5 openly licensed pretraining corpora (license, size, languages incl. Hindi/Indic, quality); stop for user choice.
+- [ ] `model/scripts/download_data.py`: stream chosen sources to `data/raw/` with a token budget flag.
+- [ ] Cleaning: exact-dup removal (content hash), length/repetition/language filters, PII redaction (port `orchestrator/src/utils/redact.js` rules to Python with tests).
+- [ ] Multi-shard token files + data mixture config (YAML: source → weight).
+- [ ] Train the 32k BPE on a representative sample; report tokens-per-word for English and Hindi.
 
-## Phase 2 — Knowledge layer
-- [ ] `orchestrator/scripts/ingest.js`: files/URLs → chunk (by tokens, with overlap) → embed → `knowledge.upsert`. Idempotent by content hash.
-- [ ] `scripts/create_vector_index.js` for the `knowledge_vector` Atlas index (dims from the embedder).
-- [ ] Hybrid retrieval: vector + text with reciprocal-rank fusion; tests with fake repos.
-- [ ] Return citations (`contextIds`) in the API `meta`.
+## M2 — Training infrastructure
+- [ ] YAML run configs (`model/configs/*.yaml`) instead of long CLIs; `train.py --config`.
+- [ ] Log tokens/sec and MFU; optional gradient checkpointing; FSDP path for `base`/`1b`.
+- [ ] `model/eval/`: held-out perplexity per data source + a small open-licensed benchmark set (record licenses); markdown report per checkpoint.
+- [ ] `docs/EXPERIMENTS.md` template and a script that appends a run summary from logs.
 
-## Phase 3 — Evaluation & observability
-- [ ] `eval/` harness: golden JSONL (synthetic), run per tier and full ladder, report accuracy (LLM-judge via escalation model, opt-in), latency p50/p95, escalation rate, cost estimate. Markdown report output.
-- [ ] Prometheus `/metrics`: requests by `servedBy`, latency histograms, escalation counter, adapter usage.
-- [ ] Extend `/stats` with per-adapter resolution rate.
+## M3 — First real model
+- [ ] Run `tiny` on ~0.5–1B tokens on one GPU (ask before renting). Log it. Write `model/MODEL_CARD.md`.
+- [ ] 3–5 single-variable experiments (lr, batch, seq len, data mix); keep the best.
 
-## Phase 4 — Learned router
-- [ ] Export router features + outcome labels from traces (which tier first succeeded).
-- [ ] Train a small classifier (logistic regression on embeddings) in `training/router/`; export weights as JSON.
-- [ ] `router.learned.js` loads weights; feature-flag + shadow mode comparing against the heuristic; promote when better on eval.
+## M4 — Chat
+- [ ] `model/sft.py`: loss only on assistant tokens, chat template with reserved tokens, packing.
+- [ ] SFT data plan in `docs/DATA.md` (human-written / openly licensed; no other-AI outputs).
+- [ ] `model/chat.py` interactive CLI with KV cache and streaming.
 
-## Phase 5 — Product surface
-- [ ] SSE streaming on `/api/v1/chat/stream` (local tiers stream; escalation streams via the hosted API).
-- [ ] Semantic cache at the edge (Cloudflare Vectorize) with similarity threshold + TTL.
-- [ ] Per-tenant API keys and quotas (Mongo-backed), replacing the single shared key.
-- [ ] OpenAI-compatible facade (`/v1/chat/completions`) so existing clients can point at Viron AI.
+## M5 — Serve Viron in the runtime
+- [ ] GGUF export: map Viron weights to llama.cpp's llama architecture; verify llama.cpp logits ≈ PyTorch on fixed prompts.
+- [ ] Viron `tiny` and `small` become the orchestrator's tiny/core tiers in `docker-compose.yml`.
+- [ ] LoRA on Viron checkpoints from runtime traces (redacted), per skill.
 
-## Phase 6 — Research track (true elasticity)
-- [ ] Spike: early-exit / nested-width (Matryoshka-style) inference on one checkpoint; write findings before any implementation.
-- [ ] Spike: speculative decoding with tiny as draft for core.
+## M6 — Scale & align
+- [ ] `small` → `base` → `1b`, each gated on eval improvement per dollar.
+- [ ] Preference tuning (DPO) with own preference data; long-context extension (RoPE scaling).
+
+## M7 — Elastic Viron (the original idea)
+- [ ] Early-exit heads trained jointly so easy tokens leave after a few layers; measure speed vs quality.
+- [ ] Nested-width (Matryoshka-style) training so one checkpoint serves several sizes.
+- [ ] Speculative decoding: Viron tiny drafts for Viron core.
