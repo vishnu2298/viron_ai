@@ -1,8 +1,9 @@
 """
 Stream approved sources from a Hugging Face-compatible hub into `data/raw/<source>/part-*.jsonl`.
 
-Stdlib only: lists files through the public tree API, streams `.jsonl` / `.jsonl.gz` line by line, and stops at a
-token budget. Parquet needs `pyarrow`, which is not a project dependency yet; such files are skipped with a log line.
+Lists files through the public tree API, streams `.jsonl` / `.jsonl.gz` line by line, reads `.parquet` in row-group
+batches (pyarrow; Parquet needs random access, so each file is spooled to a temp file first), and stops at a token
+budget.
 Progress lives in `manifest.json` so an interrupted or budget-limited download resumes at the next file.
 """
 
@@ -11,6 +12,8 @@ import io
 import json
 import os
 import re
+import shutil
+import tempfile
 import time
 import urllib.error
 import urllib.parse
@@ -22,7 +25,7 @@ from pathlib import Path
 from .sources import Source
 
 HUB = "https://huggingface.co"
-READABLE = (".jsonl", ".jsonl.gz", ".json.gz")
+READABLE = (".jsonl", ".jsonl.gz", ".json.gz", ".parquet")
 PART_BYTES = 256 * 1024 * 1024  # rotate output files so no single file gets unwieldy
 
 
@@ -83,6 +86,21 @@ def iter_texts(stream: io.BufferedIOBase, path: str, field: str) -> Iterator[str
             yield text
 
 
+def iter_parquet_texts(stream: io.BufferedIOBase, field: str, spool_dir: Path, batch_rows: int = 1024) -> Iterator[str]:
+    import pyarrow.parquet as pq
+
+    with tempfile.NamedTemporaryFile(dir=spool_dir, suffix=".parquet") as tmp:
+        shutil.copyfileobj(stream, tmp, length=1 << 20)
+        tmp.flush()
+        pf = pq.ParquetFile(tmp.name)
+        if field not in pf.schema_arrow.names:
+            raise ValueError(f"column {field!r} not in parquet schema {pf.schema_arrow.names}")
+        for batch in pf.iter_batches(columns=[field], batch_size=batch_rows):
+            for text in batch.column(0).to_pylist():
+                if isinstance(text, str) and text.strip():
+                    yield text
+
+
 class _PartWriter:
     def __init__(self, out: Path, start: int):
         self.out, self.index, self.f, self.size = out, start, None, 0
@@ -136,13 +154,16 @@ def download(
             if path in manifest["files_done"] or path in manifest["skipped"]:
                 continue
             if not path.endswith(READABLE):
-                if path.endswith(".parquet"):
-                    log("download.skip_parquet", source=src.name, path=path, note="needs pyarrow (not approved yet)")
-                manifest["skipped"].append(path)
+                manifest["skipped"].append(path)  # README, scripts, images, ...
                 continue
             url = f"{hub}/datasets/{src.repo}/resolve/main/{urllib.parse.quote(path)}"
             with open_file(url, token) as stream:
-                for text in iter_texts(stream, path, src.text_field):
+                texts = (
+                    iter_parquet_texts(stream, src.text_field, out)
+                    if path.endswith(".parquet")
+                    else iter_texts(stream, path, src.text_field)
+                )
+                for text in texts:
                     writer.write({"text": text, "source": src.name})
                     manifest["docs"] += 1
                     manifest["bytes"] += len(text.encode("utf-8"))
