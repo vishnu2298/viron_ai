@@ -25,6 +25,19 @@ export async function timingSafeEqual(a, b) {
   return diff === 0;
 }
 
+const LOCAL_TIERS = new Set(['tiny', 'core']);
+
+// Cache only answers worth replaying: a teacher (escalation) answer, or a local answer the confidence gate passed.
+// A local answer served after a failed escalation is unsure, so it is not cached; edge-* answers never are.
+export function shouldCache(status, out) {
+  if (status < 200 || status >= 300 || out?.success !== true) return false;
+  const meta = out.meta || {};
+  if (meta.servedBy === 'escalation') return meta.escalated === true;
+  if (!LOCAL_TIERS.has(meta.servedBy) || !Array.isArray(meta.attempts)) return false;
+  const served = meta.attempts.findLast((a) => a.tier === meta.servedBy && !a.error);
+  return served?.confident === true;
+}
+
 async function authorized(req, env) {
   if (!env.EDGE_API_KEY) return true;
   return timingSafeEqual(req.headers.get('authorization') || '', `Bearer ${env.EDGE_API_KEY}`);
@@ -64,7 +77,7 @@ export default {
       });
       if (res.status >= 500) throw new Error(`origin ${res.status}`);
       const out = await res.json();
-      if (key && out.success) {
+      if (key && shouldCache(res.status, out)) {
         ctx.waitUntil(
           env.CACHE.put(key, JSON.stringify({ data: out.data, meta: out.meta }), {
             expirationTtl: Number(env.CACHE_TTL_SECONDS || 3600),

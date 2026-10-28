@@ -8,7 +8,7 @@ North-star metric: `localResolutionRate` (`GET /api/v1/stats`) at equal or bette
 - [x] Add coverage (`node --test --experimental-test-coverage`, `pytest --cov`); target ≥80% on `services/`.
 - [x] `app.set('trust proxy', …)` and key the rate limiter on `CF-Connecting-IP` when behind Cloudflare.
 - [x] Edge: use a constant-time compare for `EDGE_API_KEY`.
-- [ ] Edge: cache only answers that were confident locally or came from escalation (check `meta.attempts`); never cache `edge-fallback`.
+- [x] Edge: cache only answers that were confident locally or came from escalation (check `meta.attempts`); never cache `edge-fallback`.
 - [ ] Orchestrator: send retrieved context as a separate system/context message, not prefixed into the user turn, so history stays clean. Update `export_traces.py` accordingly.
 - [ ] Config validation at startup (Joi schema over `config/index.js`); fail fast on bad values.
 - [ ] Graceful shutdown: drain in-flight requests before closing Mongo.
