@@ -39,7 +39,12 @@ curl -s localhost:8080/api/v1/chat -H 'authorization: Bearer change-me' \
 ```
 Config is validated at startup (`orchestrator/src/config/load.js`); an invalid env value aborts boot with every problem listed by variable name.
 Until adapters exist, remove the `--lora` lines from `llm-core`.
-The per-request `lora` field needs a recent `llama-server`; verify against your image version.
+The per-request `lora` field needs a recent `llama-server`; the image is pinned in `docker-compose.yml` (`x-llama-image`).
+
+### Upgrading llama.cpp
+1. Pick a `server-b<build>` tag from `ghcr.io/ggml-org/llama.cpp` and get its index digest:
+   `docker buildx imagetools inspect ghcr.io/ggml-org/llama.cpp:server-b<build>` (the top-level `Digest:`).
+2. Update the tag and digest in `x-llama-image`, then re-verify per-request `lora`, `logprobs`, and `/v1/embeddings`.
 
 ## Learning loop
 ```bash

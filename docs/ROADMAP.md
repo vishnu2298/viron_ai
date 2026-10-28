@@ -12,7 +12,7 @@ North-star metric: `localResolutionRate` (`GET /api/v1/stats`) at equal or bette
 - [x] Orchestrator: send retrieved context as a separate system/context message, not prefixed into the user turn, so history stays clean. Update `export_traces.py` accordingly.
 - [x] Config validation at startup (Joi schema over `config/index.js`); fail fast on bad values.
 - [x] Graceful shutdown: drain in-flight requests before closing Mongo.
-- [ ] Pin `llama.cpp` server image to a tag/digest instead of `:server`.
+- [x] Pin `llama.cpp` server image to a tag/digest instead of `:server`.
 
 ## Phase 1 — Real models (needs user decision: base model family + license)
 - [ ] Write `docs/MODELS.md` comparing 2–3 small open-weight families that ship ≥2 sizes; stop for user choice.
