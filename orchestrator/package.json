@@ -1,0 +1,19 @@
+{
+  "name": "viron-ai-orchestrator",
+  "version": "0.1.0",
+  "description": "Viron AI: small local model that expands via adapters, retrieval and escalation",
+  "main": "src/server.js",
+  "engines": { "node": ">=20" },
+  "scripts": {
+    "start": "node src/server.js",
+    "test": "NODE_ENV=test node --test test/*.test.js"
+  },
+  "dependencies": {
+    "express": "^4.21.0",
+    "express-rate-limit": "^7.4.0",
+    "helmet": "^8.0.0",
+    "joi": "^17.13.0",
+    "mongodb": "^6.9.0",
+    "winston": "^3.14.0"
+  }
+}

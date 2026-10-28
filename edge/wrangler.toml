@@ -1,0 +1,18 @@
+name = "viron-ai-edge"
+main = "src/index.js"
+compatibility_date = "2026-10-01"
+
+[vars]
+ORIGIN_URL = "https://your-orchestrator.example.com"
+CACHE_TTL_SECONDS = "3600"
+# Pick a current small instruct model from the Workers AI catalog
+FALLBACK_MODEL = "@cf/meta/llama-3.1-8b-instruct"
+
+[[kv_namespaces]]
+binding = "CACHE"
+id = "REPLACE_WITH_KV_NAMESPACE_ID"
+
+[ai]
+binding = "AI"
+
+# secrets: wrangler secret put EDGE_API_KEY ; wrangler secret put ORIGIN_API_KEY

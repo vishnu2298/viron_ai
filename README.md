@@ -1,0 +1,69 @@
+# Viron AI
+
+> Elastic AI runtime: a small local model that shrinks to the least compute a request needs and expands only when it must.
+
+A small AI system that **shrinks** to the least compute a request needs and **expands** only when it must.
+Target footprint: ~2–4 GB of weights on one machine, instead of a giant always-on model.
+
+```
+Client → Cloudflare Worker (auth, KV answer cache, Workers AI fallback)
+       → Orchestrator (Node.js)
+           route → retrieve (MongoDB vector search)
+           → tiny model (+LoRA)  ──unsure──▶ core model (+LoRA) ──unsure──▶ escalation (large hosted model)
+           → trace (PII-redacted) → MongoDB
+       ↻ training/: escalated traces → distilled LoRA adapters → fewer escalations next cycle
+```
+
+| Tier | What | Footprint |
+|---|---|---|
+| edge-cache | repeated questions | 0 compute |
+| tiny | small quantized model | ~0.5–1 GB |
+| core | larger quantized model of the same family | ~2 GB |
+| adapters | LoRA skills, hot-attached per request | 10–100 MB each |
+| knowledge | MongoDB, outside the weights | unbounded |
+| escalation | hosted large model | pay per hard request |
+
+## Why it gets cheaper over time
+Every escalation is stored as a teacher-labelled example. `training/export_traces.py` buckets them per skill,
+`train_lora.py` distills a new adapter, and the next deployment answers those questions locally.
+**North-star metric:** `localResolutionRate` from `GET /api/v1/stats`.
+
+## Run
+```bash
+cp .env.example .env               # set keys
+# 1. pick a small open-weight model family with two sizes; check its license
+# 2. build GGUF artifacts into ./models  (training/build_artifacts.sh)
+docker compose up -d
+curl -s localhost:8080/api/v1/chat -H 'authorization: Bearer change-me' \
+  -H 'content-type: application/json' -d '{"message":"How do refunds work?"}'
+```
+Until adapters exist, remove the `--lora` lines from `llm-core`.
+The per-request `lora` field needs a recent `llama-server`; verify against your image version.
+
+## Learning loop
+```bash
+cd training && pip install -r requirements.txt
+MONGODB_URI=... python export_traces.py --out data --days 30 --min-examples 200
+python train_lora.py --base <core-base-model> --data data/support.jsonl --out adapters/support-core
+LLAMA_CPP=~/llama.cpp BASE=<core-base-dir> NAME=core ./build_artifacts.sh
+```
+Adapters are tied to their base weights: train per tier.
+
+## Edge
+```bash
+cd edge && wrangler kv namespace create CACHE   # put id in wrangler.toml
+wrangler secret put EDGE_API_KEY && wrangler secret put ORIGIN_API_KEY && wrangler deploy
+```
+
+## Tests
+```bash
+cd orchestrator && npm i && npm test     # routing, confidence gate, expand/escalate ladder, API, PII redaction
+cd training && pytest -q                 # dataset export
+cd edge && node test.mjs                 # cache + fallback
+```
+
+## Known limits
+- The router is heuristic. Replace it with a classifier trained on traces after ~5k requests.
+- Logprob confidence is a proxy. Add a verifier step for high-stakes domains.
+- Tiers are discrete model sizes. True nested-weight elasticity (one checkpoint, variable depth) is phase 3.
+- Exact-match edge cache only. Semantic caching is a next step.

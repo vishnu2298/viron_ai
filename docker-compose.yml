@@ -1,0 +1,48 @@
+# Whole Viron AI on one box. Put GGUF files in ./models (see training/build_artifacts.sh).
+services:
+  llm-tiny:
+    image: ghcr.io/ggml-org/llama.cpp:server
+    command: >
+      -m /models/tiny-q4_k_m.gguf --host 0.0.0.0 --port 8081 -c 4096 --parallel 4
+    volumes: ["./models:/models:ro"]
+    restart: unless-stopped
+
+  llm-core:
+    image: ghcr.io/ggml-org/llama.cpp:server
+    # adapters preloaded but inactive; orchestrator activates them per request via `lora`
+    command: >
+      -m /models/core-q4_k_m.gguf --host 0.0.0.0 --port 8082 -c 8192 --parallel 4
+      --lora /models/lora-code-core.gguf
+      --lora /models/lora-commerce-core.gguf
+      --lora /models/lora-support-core.gguf
+      --lora-init-without-apply
+    volumes: ["./models:/models:ro"]
+    restart: unless-stopped
+
+  embedder:
+    image: ghcr.io/ggml-org/llama.cpp:server
+    command: >
+      -m /models/embed.gguf --host 0.0.0.0 --port 8083 --embedding --pooling mean
+    volumes: ["./models:/models:ro"]
+    restart: unless-stopped
+
+  mongo:
+    image: mongodb/mongodb-atlas-local:latest   # supports $vectorSearch locally
+    ports: ["27017:27017"]
+    volumes: ["mongo-data:/data/db"]
+    restart: unless-stopped
+
+  orchestrator:
+    build: ./orchestrator
+    env_file: .env
+    environment:
+      TINY_MODEL_URL: http://llm-tiny:8081
+      CORE_MODEL_URL: http://llm-core:8082
+      EMBED_URL: http://embedder:8083
+      MONGODB_URI: mongodb://mongo:27017/?directConnection=true
+    ports: ["8080:8080"]
+    depends_on: [llm-tiny, llm-core, embedder, mongo]
+    restart: unless-stopped
+
+volumes:
+  mongo-data:

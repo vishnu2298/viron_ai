@@ -1,0 +1,12 @@
+# export only
+pymongo>=4.8
+pydantic-settings>=2.4
+# training (GPU box / Colab / RunPod)
+torch>=2.3
+transformers>=4.44
+peft>=0.12
+datasets>=2.20
+accelerate>=0.33
+bitsandbytes>=0.43 ; platform_system == "Linux"
+# tests
+pytest>=8

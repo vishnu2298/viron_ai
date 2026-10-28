@@ -1,0 +1,31 @@
+name: CI
+on:
+  push: { branches: [main] }
+  pull_request:
+jobs:
+  orchestrator:
+    runs-on: ubuntu-latest
+    defaults: { run: { working-directory: orchestrator } }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm, cache-dependency-path: orchestrator/package-lock.json }
+      - run: npm ci
+      - run: npm test
+  training:
+    runs-on: ubuntu-latest
+    defaults: { run: { working-directory: training } }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.12' }
+      - run: pip install pytest
+      - run: pytest -q
+  edge:
+    runs-on: ubuntu-latest
+    defaults: { run: { working-directory: edge } }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - run: node test.mjs
