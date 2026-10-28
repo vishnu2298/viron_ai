@@ -26,7 +26,7 @@ Existing code that violates this (`orchestrator/src/services/escalation.service.
 - `cd model && pip install -r requirements.txt && pytest -q` (CPU torch is enough for tests)
 - `cd orchestrator && npm ci && npm test` (`npm run test:coverage` enforces ≥80% on `services/`)
 - `cd training && pip install -r requirements-dev.txt && pytest -q` (includes coverage) · `cd edge && npm ci && node test.mjs`
-- Lint: `npm run lint` (orchestrator, edge); `ruff check . && ruff format --check .` (training)
+- Lint: `npm run lint` (orchestrator, edge); `ruff check . && ruff format --check .` (training, model)
 CI runs all four suites; keep it green.
 
 ## Hard rules

@@ -9,7 +9,7 @@ North-star: best validation loss / eval score per dollar of compute, then local 
 - [x] Edge: constant-time key compare; cache only confident local answers (check `meta.attempts`).
 - [x] Mark `training/train_lora.py` as targeting Viron checkpoints (M5); remove HF-pretrained-base assumptions from docs.
 - [x] Update root README diagram and `.env.example` to the standalone architecture.
-- [ ] Lint/format: ruff (Python), ESLint + Prettier (JS); add to CI.
+- [x] Lint/format: ruff (Python), ESLint + Prettier (JS); add to CI.
 
 ## M1 — Data (needs user decision)
 - [ ] `docs/DATA.md`: compare 3–5 openly licensed pretraining corpora (license, size, languages incl. Hindi/Indic, quality); stop for user choice.

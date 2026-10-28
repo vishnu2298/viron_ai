@@ -4,8 +4,9 @@ Tokenizers trained on YOUR data — no pretrained vocabularies.
 - ByteTokenizer: zero-dependency 256+specials fallback for tests and tiny experiments.
 Chat special tokens are reserved from day one so SFT later needs no vocab change.
 """
+
+from collections.abc import Iterable
 from pathlib import Path
-from typing import Iterable
 
 SPECIALS = ["<|pad|>", "<|bos|>", "<|eos|>", "<|system|>", "<|user|>", "<|assistant|>", "<|end|>"]
 
@@ -33,18 +34,24 @@ class ByteTokenizer:
 class BPETokenizer:
     def __init__(self, path: str | Path):
         from tokenizers import Tokenizer
+
         self.tk = Tokenizer.from_file(str(path))
         self.vocab_size = self.tk.get_vocab_size()
 
     @staticmethod
     def train(files: list[str], out_path: str | Path, vocab_size: int = 32000, min_frequency: int = 2):
         from tokenizers import Tokenizer, decoders, models, pre_tokenizers, trainers
+
         tk = Tokenizer(models.BPE(byte_fallback=False))
         tk.pre_tokenizer = pre_tokenizers.ByteLevel(add_prefix_space=False)
         tk.decoder = decoders.ByteLevel()
         trainer = trainers.BpeTrainer(
-            vocab_size=vocab_size, min_frequency=min_frequency, special_tokens=SPECIALS,
-            initial_alphabet=pre_tokenizers.ByteLevel.alphabet(), show_progress=True)
+            vocab_size=vocab_size,
+            min_frequency=min_frequency,
+            special_tokens=SPECIALS,
+            initial_alphabet=pre_tokenizers.ByteLevel.alphabet(),
+            show_progress=True,
+        )
         tk.train(files, trainer)
         Path(out_path).parent.mkdir(parents=True, exist_ok=True)
         tk.save(str(out_path))

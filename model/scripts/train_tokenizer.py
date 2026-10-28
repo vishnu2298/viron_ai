@@ -1,6 +1,7 @@
 """Train Viron's own BPE tokenizer from raw text files.
-  python scripts/train_tokenizer.py --input data/raw --out artifacts/tokenizer.json --vocab 32000
+python scripts/train_tokenizer.py --input data/raw --out artifacts/tokenizer.json --vocab 32000
 """
+
 import argparse
 import sys
 from pathlib import Path

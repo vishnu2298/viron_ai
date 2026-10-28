@@ -86,6 +86,7 @@ Coverage: `cd orchestrator && npm run test:coverage` (fails below 80% lines/bran
 cd orchestrator && npm run lint          # ESLint + Prettier check (npm run format to fix)
 cd edge && npm ci && npm run lint
 cd training && pip install -r requirements-dev.txt && ruff check . && ruff format --check .
+cd model && ruff check . && ruff format --check .
 ```
 
 ## Known limits
