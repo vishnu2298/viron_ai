@@ -1,7 +1,8 @@
 """Download approved sources (docs/DATA.md) into data/raw/<source>/ with a token budget.
 python scripts/download_data.py --source commonpile_comma --max-tokens 850_000_000
 python scripts/download_data.py --source sangraha_verified_hin --max-tokens 150_000_000
-Set HF_TOKEN for gated datasets. `--list` checks a source's repo/path without downloading. Re-running resumes from the manifest; raise --max-tokens to fetch more.
+Set HF_TOKEN for gated datasets. `--list` checks a source's repo/path without downloading.
+Re-running resumes from the manifest; raise --max-tokens to fetch more.
 """
 
 import argparse
