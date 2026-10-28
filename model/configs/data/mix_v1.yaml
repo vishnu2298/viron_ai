@@ -1,0 +1,8 @@
+# Data mixture v1 — docs/DATA.md "Mix B" (decided 2026-10-28): 85% English / 15% Hindi by tokens.
+# Weights are sampling probabilities per training window; they are normalized, so only ratios matter.
+# Only sources registered in viron/sources.py (i.e. approved in docs/DATA.md) are accepted.
+tokens_dir: data/tokens
+sources:
+  commonpile_comma: 0.85
+  sangraha_verified_hin: 0.10
+  wikipedia_hi: 0.05

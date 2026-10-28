@@ -15,7 +15,7 @@ North-star: best validation loss / eval score per dollar of compute, then local 
 - [x] `docs/DATA.md`: compare 3–5 openly licensed pretraining corpora (license, size, languages incl. Hindi/Indic, quality); stop for user choice.
 - [x] `model/scripts/download_data.py`: stream chosen sources to `data/raw/` with a token budget flag.
 - [x] Cleaning: exact-dup removal (content hash), length/repetition/language filters, PII redaction (port `orchestrator/src/utils/redact.js` rules to Python with tests).
-- [ ] Multi-shard token files + data mixture config (YAML: source → weight).
+- [x] Multi-shard token files + data mixture config (YAML: source → weight).
 - [ ] Train the 32k BPE on a representative sample; report tokens-per-word for English and Hindi.
 
 ## M2 — Training infrastructure
